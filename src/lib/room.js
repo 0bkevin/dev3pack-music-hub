@@ -44,10 +44,11 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
         }
         if (msg.type === 'state') {
           const nextId = msg.current?.track?.id || null;
-          if (nextId !== lastTrackId) {
+          // Only reset myVote when transitioning between tracks (not on initial connect, which races with 'you')
+          if (lastTrackId !== null && nextId !== lastTrackId) {
             setMyVote(0);
-            lastTrackId = nextId;
           }
+          lastTrackId = nextId;
           setState(msg);
         }
       };

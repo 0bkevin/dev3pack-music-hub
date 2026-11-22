@@ -54,6 +54,7 @@ export function NowPlayingHero(props) {
             class={`react-pill like${props.myVote() === 1 ? ' active' : ''}`}
             id="like-btn"
             type="button"
+            disabled={!props.current()}
             onClick={() => props.onVote(1)}
           >
             <span class="emoji">👍</span>
@@ -64,6 +65,7 @@ export function NowPlayingHero(props) {
             class={`react-pill dislike${props.myVote() === -1 ? ' active' : ''}`}
             id="dislike-btn"
             type="button"
+            disabled={!props.current()}
             onClick={() => props.onVote(-1)}
           >
             <span class="emoji">👎</span>

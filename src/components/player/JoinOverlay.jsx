@@ -64,6 +64,7 @@ export function JoinOverlay(props) {
               class="btn-primary"
               id="join-btn"
               type="button"
+              disabled={props.joining?.()}
               onClick={() => props.onJoin(props.nameInput() || undefined, props.selectedEmoji())}
             >
               Entrar
@@ -72,6 +73,7 @@ export function JoinOverlay(props) {
               class="btn-subtle"
               id="anon-btn"
               type="button"
+              disabled={props.joining?.()}
               onClick={() => props.onJoin(undefined, undefined)}
             >
               Entrar como anónimo

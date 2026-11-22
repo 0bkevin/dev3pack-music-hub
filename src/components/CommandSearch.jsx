@@ -109,6 +109,10 @@ export function CommandSearch(props) {
 
   onMount(() => {
     const onGlobalKeyDown = (e) => {
+      if (props.disabled?.()) {
+        if (open()) closePalette();
+        return;
+      }
       if (isCommandSearchEvent(e)) {
         e.preventDefault();
         e.stopPropagation();

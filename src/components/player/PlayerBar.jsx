@@ -47,6 +47,7 @@ export function PlayerBar(props) {
           id="pb-like-btn"
           type="button"
           aria-label="Me gusta"
+          disabled={!props.current()}
           onClick={() => props.onVote(1)}
         >
           <span>👍</span>
@@ -57,6 +58,7 @@ export function PlayerBar(props) {
           id="pb-dislike-btn"
           type="button"
           aria-label="No me gusta"
+          disabled={!props.current()}
           onClick={() => props.onVote(-1)}
         >
           <span>👎</span>

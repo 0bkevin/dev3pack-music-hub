@@ -236,6 +236,7 @@
 }
 .pb-vote.like.active { background: var(--like-soft); border-color: rgba(74, 222, 128, 0.4); color: var(--like); }
 .pb-vote.dislike.active { background: var(--danger-soft); border-color: rgba(255, 107, 122, 0.45); color: var(--danger); }
+.pb-vote:disabled { opacity: 0.42; cursor: default; pointer-events: none; }
 
 .pb-history-link {
   display: inline-flex;

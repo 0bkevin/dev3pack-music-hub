@@ -19,6 +19,7 @@ export function PlayerApp() {
   const [session, setSession] = createSignal(loadSession());
   const [nameInput, setNameInput] = createSignal('');
   const [joinError, setJoinError] = createSignal('');
+  const [joining, setJoining] = createSignal(false);
   const [selectedEmoji, setSelectedEmoji] = createSignal(
     USER_EMOJIS[Math.floor(Math.random() * USER_EMOJIS.length)]
   );
@@ -31,6 +32,8 @@ export function PlayerApp() {
 
   let searchTimer = null;
   let lastSeenTrackId = null;
+  let voteInFlight = false;
+  const cancelingQids = new Set();
   let nameRef;
   let searchRef;
 
@@ -39,6 +42,8 @@ export function PlayerApp() {
   });
 
   async function joinRoom(name, emoji, silent = false) {
+    if (joining()) return;
+    setJoining(true);
     setJoinError('');
     try {
       const data = await api('/api/join', {
@@ -53,6 +58,8 @@ export function PlayerApp() {
     } catch (err) {
       setJoinError(err.message);
       if (!silent) toast.error('Nombre no disponible', err.message);
+    } finally {
+      setJoining(false);
     }
   }
 
@@ -174,7 +181,8 @@ export function PlayerApp() {
 
   async function cancelQueuedTrack(item) {
     const s = session();
-    if (!s?.clientId || !item?.qid) return;
+    if (!s?.clientId || !item?.qid || cancelingQids.has(item.qid)) return;
+    cancelingQids.add(item.qid);
     try {
       await api('/api/queue/cancel', {
         method: 'POST',
@@ -186,6 +194,8 @@ export function PlayerApp() {
       );
     } catch (err) {
       toast.error('No se pudo quitar la canción', err.message);
+    } finally {
+      cancelingQids.delete(item.qid);
     }
   }
 
@@ -195,6 +205,8 @@ export function PlayerApp() {
       openJoinOverlay();
       return;
     }
+    if (!current() || voteInFlight) return;
+    voteInFlight = true;
     const next = room.myVote() === value ? 0 : value;
     try {
       const res = await api('/api/vote', {
@@ -208,6 +220,8 @@ export function PlayerApp() {
       room.setMyVote(res.myVote ?? next);
     } catch (err) {
       toast.error('No se pudo registrar tu voto', err.message);
+    } finally {
+      voteInFlight = false;
     }
   }
 
@@ -284,6 +298,7 @@ export function PlayerApp() {
       </div>
 
       <CommandSearch
+        disabled={() => !session()?.clientId}
         queue={queue}
         currentTrackId={() => current()?.track?.id}
         onEnqueue={enqueueTrack}
@@ -292,6 +307,7 @@ export function PlayerApp() {
 
       <JoinOverlay
         visible={() => !session()?.clientId}
+        joining={joining}
         current={current}
         inputRef={(el) => { nameRef = el; }}
         nameInput={nameInput}

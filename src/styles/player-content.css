@@ -106,6 +106,7 @@
   transition: transform 160ms var(--ease-out);
 }
 .react-pill.active .emoji { transform: scale(1.12); }
+.react-pill:disabled { opacity: 0.42; cursor: default; pointer-events: none; }
 .react-pill .count {
   font-variant-numeric: tabular-nums;
   color: var(--fg-secondary);
