@@ -227,7 +227,7 @@ export function CommandSearch(props) {
                               fallback={
                                 <>
                                   <PlusIcon size={11} />
-                                  <span>Cola</span>
+                                  <span>Agregar</span>
                                 </>
                               }
                             >

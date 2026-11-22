@@ -305,7 +305,7 @@
   }
   .main-pane { padding: 4px 20px 36px; }
   .track-table-head,
-  .track-row { grid-template-columns: 24px 40px minmax(0, 1fr) 80px; }
+  .track-row { grid-template-columns: 24px 40px minmax(0, 1fr) 88px; }
   .th-album, .th-dur, .track-album, .track-dur { display: none; }
   .hero-stage { padding: 20px 0 22px; gap: 20px; }
   .stage-cover-wrap { width: 128px; height: 128px; }
@@ -339,8 +339,8 @@
   .skip-status { margin-left: 0; width: 100%; margin-top: 2px; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 3px; }
   .track-table-head,
-  .track-row { grid-template-columns: 20px 38px minmax(0, 1fr) 74px; gap: 10px; }
+  .track-row { grid-template-columns: 20px 38px minmax(0, 1fr) 84px; gap: 10px; }
   .track-art { width: 38px; height: 38px; }
-  .add-btn { width: 74px; font-size: 11.5px; }
+  .add-btn { width: 84px; padding: 0 8px; font-size: 11.5px; }
 }
 

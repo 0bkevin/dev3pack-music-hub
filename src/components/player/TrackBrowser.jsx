@@ -117,7 +117,7 @@ export function TrackBrowser(props) {
                         }
                       >
                         <PlusIcon size={12} />
-                        <span>Cola</span>
+                        <span>Agregar</span>
                       </Show>
                     </Show>
                   </button>
