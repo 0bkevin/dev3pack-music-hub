@@ -1,8 +1,10 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
+import { toast } from '../lib/sonner.js';
 import { Cover } from '../components/Cover.jsx';
 import { ChevronDownIcon, CrownIcon, SearchIcon } from '../components/Icons.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
+import { Toaster } from '../components/Toaster.jsx';
 
 const STATUS_LABELS = {
   playing: 'Sonando',
@@ -32,15 +34,6 @@ export function HistoryApp() {
   const [openUserId, setOpenUserId] = createSignal(null); // single-open accordion
   const [userTracks, setUserTracks] = createSignal({}); // userId -> TrackHistory[]
   const [loadingUserId, setLoadingUserId] = createSignal(null);
-  const [toast, setToast] = createSignal({ msg: '', ok: false, visible: false });
-
-  let toastTimer = null;
-
-  function showToast(msg, ok = false) {
-    setToast({ msg, ok, visible: true });
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000);
-  }
 
   async function loadAll() {
     setLoading(true);
@@ -48,7 +41,7 @@ export function HistoryApp() {
       const res = await api('/api/history');
       setData(res);
     } catch (err) {
-      showToast(err.message);
+      toast.error('No se pudo cargar el historial', err.message);
     } finally {
       setLoading(false);
     }
@@ -60,7 +53,7 @@ export function HistoryApp() {
       const res = await api(`/api/history/user/${encodeURIComponent(userId)}`);
       setUserTracks((prev) => ({ ...prev, [userId]: res.history || [] }));
     } catch (err) {
-      showToast(err.message);
+      toast.error('No se pudo cargar el historial del participante', err.message);
     } finally {
       setLoadingUserId((cur) => (cur === userId ? null : cur));
     }
@@ -95,11 +88,14 @@ export function HistoryApp() {
         method: 'POST',
         body: JSON.stringify({ clientId: s.clientId, track }),
       });
-      showToast(`«${track.name}» agregada a la cola`, true);
+      toast.success(
+        `«${track.name}» agregada`,
+        'Ya está en la cola de la sala.'
+      );
       loadAll();
       return true;
     } catch (err) {
-      showToast(err.message);
+      toast.error('No se pudo agregar a la cola', err.message);
       return false;
     }
   }
@@ -109,7 +105,6 @@ export function HistoryApp() {
     const timer = setInterval(loadAll, 15_000);
     onCleanup(() => {
       clearInterval(timer);
-      clearTimeout(toastTimer);
     });
   });
 
@@ -462,12 +457,10 @@ export function HistoryApp() {
         queue={() => []}
         currentTrackId={() => null}
         onEnqueue={enqueueFromHistory}
-        onNotify={showToast}
+        onNotify={(msg) => toast.error('Error de búsqueda', msg)}
       />
 
-      <div class={`toast${toast().visible ? ' show' : ''}${toast().ok ? ' ok' : ''}`} id="toast">
-        {toast().msg}
-      </div>
+      <Toaster />
     </div>
   );
 }

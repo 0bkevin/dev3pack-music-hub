@@ -45,7 +45,6 @@
     transform: none;
   }
   .join-sheet,
-  .toast,
   .tv-skip-banner,
   .tv-q-item,
   .search-clear {
@@ -55,8 +54,6 @@
       transform: none;
     }
   }
-  .toast { transform: translateX(-50%); }
-  .toast.show { transform: translateX(-50%); }
   .tv-skip-banner { transform: translateX(-50%); }
   .tv-skip-banner.show { transform: translateX(-50%); }
   .queue-rail { transition: opacity 180ms ease; }

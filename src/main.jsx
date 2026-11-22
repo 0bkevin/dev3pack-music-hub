@@ -5,6 +5,7 @@ import './styles/player-content.css';
 import './styles/player-chrome.css';
 import './styles/player-overlays.css';
 import './styles/command-search.css';
+import './styles/sonner.css';
 import './styles/motion.css';
 import { PlayerApp } from './pages/PlayerApp.jsx';
 
