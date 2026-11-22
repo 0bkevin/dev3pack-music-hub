@@ -1,6 +1,7 @@
 import { createSignal, createEffect, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { fmtMs, hashCode } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
+import { createSpotifyHostPlayer } from '../lib/spotifyPlayer.js';
 import { Cover } from '../components/Cover.jsx';
 import { Equalizer } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
@@ -15,13 +16,7 @@ const SPOTIFY_ERROR_MESSAGES = {
 export function ScreenApp() {
   const [reactions, setReactions] = createSignal([]);
   const [banner, setBanner] = createSignal({ text: '', visible: false });
-  const [spDeviceId, setSpDeviceId] = createSignal(null);
-  const [spUnlocked, setSpUnlocked] = createSignal(false);
-  const [spPaused, setSpPaused] = createSignal(false);
-  const [sdkReady, setSdkReady] = createSignal(Boolean(window._spSdkReady));
 
-  let spPlayer = null;
-  let spInitialized = false;
   let bannerTimer = null;
   let lastSeenTrackId = null;
   let reactionSeq = 0;
@@ -53,9 +48,7 @@ export function ScreenApp() {
     reactionTimers.add(t);
   }
 
-  const room = createRoom({
-    onReaction: spawnReaction,
-  });
+  const room = createRoom({ onReaction: spawnReaction });
 
   const current = () => room.state()?.current || null;
   const queue = () => room.state()?.queue || [];
@@ -63,6 +56,8 @@ export function ScreenApp() {
   const dislikesToSkip = () => room.state()?.dislikesToSkip || 5;
   const dislikes = () => room.state()?.dislikes || 0;
   const likes = () => room.state()?.likes || 0;
+
+  const spotify = createSpotifyHostPlayer({ host, onError: showBanner });
 
   const waveHue = createMemo(() => {
     const t = current()?.track;
@@ -76,7 +71,7 @@ export function ScreenApp() {
 
   const waveEnergy = () => {
     if (!current()) return 0.34;
-    return spPaused() ? 0.25 : 1.0;
+    return spotify.paused() ? 0.25 : 1.0;
   };
 
   function consumePulse() {
@@ -85,7 +80,6 @@ export function ScreenApp() {
     return val;
   }
 
-  // Skip notification when a track changes due to votes
   createEffect(() => {
     const cur = current();
     if (!cur) {
@@ -98,51 +92,7 @@ export function ScreenApp() {
     lastSeenTrackId = cur.track.id;
   });
 
-  // Spotify Web Playback SDK initialization
-  async function fetchHostToken() {
-    const res = await fetch('/api/spotify/token');
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.accessToken || null;
-  }
-
-  createEffect(() => {
-    if (spInitialized || !sdkReady() || !window.Spotify || !host()?.connected) return;
-    spInitialized = true;
-
-    spPlayer = new window.Spotify.Player({
-      name: 'Dev3pack Music TV',
-      getOAuthToken: async (cb) => {
-        const token = await fetchHostToken();
-        if (token) cb(token);
-      },
-      volume: 0.85,
-    });
-
-    spPlayer.addListener('ready', async ({ device_id }) => {
-      setSpDeviceId(device_id);
-      await fetch('/api/spotify/device', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: device_id }),
-      });
-    });
-
-    spPlayer.addListener('not_ready', () => setSpDeviceId(null));
-    spPlayer.addListener('player_state_changed', (s) => {
-      if (s) setSpPaused(Boolean(s.paused));
-    });
-    spPlayer.addListener('initialization_error', ({ message }) => showBanner(`Spotify SDK: ${message}`, 4500));
-    spPlayer.addListener('authentication_error', ({ message }) => showBanner(`Auth Spotify: ${message}`, 4500));
-    spPlayer.addListener('account_error', () => showBanner('Se requiere Spotify Premium para reproducir audio', 5000));
-
-    spPlayer.connect();
-  });
-
   onMount(() => {
-    const onSdk = () => setSdkReady(true);
-    window.addEventListener('spotify-sdk-ready', onSdk);
-
     const params = new URLSearchParams(location.search);
     const errCode = params.get('spotify_error');
     if (errCode) {
@@ -151,48 +101,11 @@ export function ScreenApp() {
     }
 
     onCleanup(() => {
-      window.removeEventListener('spotify-sdk-ready', onSdk);
       clearTimeout(bannerTimer);
       for (const t of reactionTimers) clearTimeout(t);
       reactionTimers.clear();
-      spPlayer?.disconnect?.();
     });
   });
-
-  async function handleSpotifyButton() {
-    const h = host();
-    if (!h?.configured) return;
-    if (!h.connected) {
-      location.href = '/api/spotify/login';
-      return;
-    }
-    if (spPlayer) {
-      if (typeof spPlayer.activateElement === 'function') {
-        await spPlayer.activateElement().catch(() => {});
-      }
-      setSpUnlocked(true);
-      if (spDeviceId()) {
-        await fetch('/api/spotify/device', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId: spDeviceId() }),
-        });
-      }
-    }
-  }
-
-  const spotifyBtnLabel = () => {
-    const h = host();
-    if (!h?.connected) return 'Conectar Spotify Premium';
-    if (spUnlocked() && spDeviceId()) return '🔊 Spotify conectado';
-    if (spDeviceId()) return '🔊 Activar sonido';
-    return 'Conectando reproductor…';
-  };
-
-  const spotifyBtnSubtle = () => {
-    const h = host();
-    return Boolean(h?.connected && (!spDeviceId() || spUnlocked()));
-  };
 
   const skipDotIndexes = createMemo(() => Array.from({ length: dislikesToSkip() }, (_, i) => i));
 
@@ -290,11 +203,11 @@ export function ScreenApp() {
 
                 <Show when={host()?.configured}>
                   <button
-                    class={`tv-audio-btn${spotifyBtnSubtle() ? ' on' : ''}`}
+                    class={`tv-audio-btn${spotify.isButtonSubtle() ? ' on' : ''}`}
                     type="button"
-                    onClick={handleSpotifyButton}
+                    onClick={spotify.handleAction}
                   >
-                    {spotifyBtnLabel()}
+                    {spotify.buttonLabel()}
                   </button>
                 </Show>
               </div>
