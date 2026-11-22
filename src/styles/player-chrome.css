@@ -222,6 +222,22 @@
 .pb-vote.like.active { background: var(--like-soft); border-color: rgba(74, 222, 128, 0.4); color: var(--like); }
 .pb-vote.dislike.active { background: var(--danger-soft); border-color: rgba(255, 107, 122, 0.45); color: var(--danger); }
 
+.pb-history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
+}
+.pb-history-link:active { transform: scale(0.97); }
+
 .provider-tag {
   font-size: 10.5px;
   font-weight: 500;

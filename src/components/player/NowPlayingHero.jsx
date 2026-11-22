@@ -35,7 +35,10 @@ export function NowPlayingHero(props) {
           <span>{props.current() ? 'Sonando ahora' : 'Sala lista'}</span>
           <Show when={props.current()}>
             <span class="dot-sep">·</span>
-            <span class="requester">Pedida por {props.current().addedBy}</span>
+            <span class="requester">
+              Pedida por {props.current().addedByEmoji ? `${props.current().addedByEmoji} ` : ''}
+              {props.current().addedBy}
+            </span>
           </Show>
         </div>
 

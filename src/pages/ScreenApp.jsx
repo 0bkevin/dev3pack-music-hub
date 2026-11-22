@@ -190,7 +190,10 @@ export function ScreenApp() {
                       <div class="tv-q-meta">
                         <div class="tv-q-name">{item.track.name}</div>
                         <div class="tv-q-artist">{item.track.artists}</div>
-                        <div class="tv-q-by">por {item.addedBy}</div>
+                        <div class="tv-q-by">
+                          {item.addedByEmoji ? `${item.addedByEmoji} ` : ''}
+                          {item.addedBy}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -217,7 +220,10 @@ export function ScreenApp() {
                     <Equalizer />
                     <span>{current().track.artists}</span>
                     <span>·</span>
-                    <span class="tv-now-by">Pedida por {current().addedBy}</span>
+                    <span class="tv-now-by">
+                      Pedida por {current().addedByEmoji ? `${current().addedByEmoji} ` : ''}
+                      {current().addedBy}
+                    </span>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,10 @@
-import { Show } from 'solid-js';
+import { Show, For } from 'solid-js';
 import { Equalizer, MusicNoteIcon } from '../Icons.jsx';
+
+export const USER_EMOJIS = [
+  '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',
+  '🪩', '🌊', '💜', '🎵', '🥁', '🌙', '🎤', '✨',
+];
 
 export function JoinOverlay(props) {
   return (
@@ -8,10 +13,15 @@ export function JoinOverlay(props) {
         <div class="join-sheet">
           <div class="join-head">
             <div class="join-mark">
-              <MusicNoteIcon size={22} strokeWidth={2.2} />
+              <Show
+                when={props.selectedEmoji()}
+                fallback={<MusicNoteIcon size={22} strokeWidth={2.2} />}
+              >
+                <span class="join-mark-emoji">{props.selectedEmoji()}</span>
+              </Show>
             </div>
             <h1>Dev3pack Music</h1>
-            <p>Pon tu nombre para pedir canciones y votar lo que suena, o entra como anónimo.</p>
+            <p>Elige un emoji y tu nombre para pedir canciones, o entra como anónimo.</p>
           </div>
 
           <Show when={props.current()}>
@@ -23,6 +33,22 @@ export function JoinOverlay(props) {
             </div>
           </Show>
 
+          <div class="emoji-picker" role="radiogroup" aria-label="Elige tu emoji">
+            <For each={USER_EMOJIS}>
+              {(em) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={props.selectedEmoji() === em}
+                  class={`emoji-opt${props.selectedEmoji() === em ? ' active' : ''}`}
+                  onClick={() => props.onSelectEmoji(em)}
+                >
+                  {em}
+                </button>
+              )}
+            </For>
+          </div>
+
           <input
             ref={props.inputRef}
             class="join-input"
@@ -31,7 +57,9 @@ export function JoinOverlay(props) {
             value={props.nameInput()}
             onInput={(e) => props.onNameInput(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') props.onJoin(props.nameInput() || undefined);
+              if (e.key === 'Enter') {
+                props.onJoin(props.nameInput() || undefined, props.selectedEmoji());
+              }
             }}
             placeholder="Tu nombre o alias"
             autocomplete="off"
@@ -42,7 +70,7 @@ export function JoinOverlay(props) {
               class="btn-primary"
               id="join-btn"
               type="button"
-              onClick={() => props.onJoin(props.nameInput() || undefined)}
+              onClick={() => props.onJoin(props.nameInput() || undefined, props.selectedEmoji())}
             >
               Entrar a escuchar
             </button>
@@ -50,9 +78,9 @@ export function JoinOverlay(props) {
               class="btn-subtle"
               id="anon-btn"
               type="button"
-              onClick={() => props.onJoin(undefined)}
+              onClick={() => props.onJoin(undefined, undefined)}
             >
-              Entrar como anónimo
+              Entrar como anónimo (emoji aleatorio)
             </button>
           </div>
         </div>

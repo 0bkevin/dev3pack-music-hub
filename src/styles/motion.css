@@ -13,6 +13,8 @@
   .add-btn:not(:disabled):hover { background: var(--wine-mid); color: #fff; border-color: var(--accent); }
   .q-item:hover { background: var(--surface); }
   .pb-vote:hover { background: var(--surface-hover); color: #fff; }
+  .pb-history-link:hover { background: var(--surface-hover); border-color: var(--border-strong); color: #fff; }
+  .emoji-opt:hover { background: var(--surface-hover); border-color: var(--border-strong); }
   .btn-primary:hover { background: #942944; }
   .btn-subtle:hover { background: var(--surface-hover); color: #fff; }
   .tv-queue:hover { opacity: 0.92; }

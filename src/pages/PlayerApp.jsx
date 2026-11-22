@@ -5,7 +5,7 @@ import { NowPlayingHero } from '../components/player/NowPlayingHero.jsx';
 import { TrackBrowser } from '../components/player/TrackBrowser.jsx';
 import { QueueRail } from '../components/player/QueueRail.jsx';
 import { PlayerBar } from '../components/player/PlayerBar.jsx';
-import { JoinOverlay } from '../components/player/JoinOverlay.jsx';
+import { JoinOverlay, USER_EMOJIS } from '../components/player/JoinOverlay.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const MOODS = [
@@ -16,6 +16,9 @@ const MOODS = [
 export function PlayerApp() {
   const [session, setSession] = createSignal(loadSession());
   const [nameInput, setNameInput] = createSignal('');
+  const [selectedEmoji, setSelectedEmoji] = createSignal(
+    USER_EMOJIS[Math.floor(Math.random() * USER_EMOJIS.length)]
+  );
   const [searchText, setSearchText] = createSignal('');
   const [activeMood, setActiveMood] = createSignal(MOODS[0]);
   const [results, setResults] = createSignal([]);
@@ -40,11 +43,11 @@ export function PlayerApp() {
     clearTimeout(searchTimer);
   });
 
-  async function joinRoom(name) {
+  async function joinRoom(name, emoji) {
     try {
       const data = await api('/api/join', {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, emoji }),
       });
       saveSession(data);
       setSession(data);
@@ -70,7 +73,7 @@ export function PlayerApp() {
     clientId: () => session()?.clientId || null,
     onSessionExpired: () => {
       const s = session();
-      if (s?.name) joinRoom(s.name);
+      if (s?.name) joinRoom(s.name, s.emoji);
     },
   });
 
@@ -255,6 +258,8 @@ export function PlayerApp() {
         inputRef={(el) => { nameRef = el; }}
         nameInput={nameInput}
         onNameInput={setNameInput}
+        selectedEmoji={selectedEmoji}
+        onSelectEmoji={setSelectedEmoji}
         onJoin={joinRoom}
       />
 

@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
 import { fmtMs } from '../../lib/api.js';
 import { Cover } from '../Cover.jsx';
-import { Equalizer, QueueIcon } from '../Icons.jsx';
+import { Equalizer, HistoryIcon, QueueIcon } from '../Icons.jsx';
 
 export function PlayerBar(props) {
   return (
@@ -22,7 +22,9 @@ export function PlayerBar(props) {
             <Equalizer />
           </Show>
           <span>
-            {props.current() ? `Pedida por ${props.current().addedBy}` : 'Esperando música'}
+            {props.current()
+              ? `Pedida por ${props.current().addedByEmoji ? `${props.current().addedByEmoji} ` : ''}${props.current().addedBy}`
+              : 'Esperando música'}
           </span>
         </div>
         <div class="pb-progress-row">
@@ -70,6 +72,10 @@ export function PlayerBar(props) {
           <QueueIcon />
           <span class="queue-toggle-count tabular">{props.queueCount()}</span>
         </button>
+        <a class="pb-history-link" href="/history" title="Ver historial y Top 5">
+          <HistoryIcon />
+          <span class="pb-history-label">Historial</span>
+        </a>
         <span class="provider-tag">{(props.provider() || '').toUpperCase()}</span>
       </div>
     </footer>

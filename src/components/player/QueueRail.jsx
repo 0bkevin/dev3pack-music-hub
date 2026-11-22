@@ -45,7 +45,10 @@ export function QueueRail(props) {
                     <div class="q-sub">
                       {item.track.artists}
                       <span class="q-sep">·</span>
-                      <span class="q-who">{item.addedBy}</span>
+                      <span class="q-who">
+                        {item.addedByEmoji ? `${item.addedByEmoji} ` : ''}
+                        {item.addedBy}
+                      </span>
                     </div>
                   </div>
                 </div>
