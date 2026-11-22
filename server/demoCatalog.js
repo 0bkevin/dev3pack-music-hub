@@ -1,6 +1,6 @@
 // Built-in offline demo catalog (used only when Spotify credentials are not configured)
 
-export const DEMO_CATALOG = [
+const DEMO_CATALOG = [
   { id: 'demo-1', name: 'Midnight City', artists: 'M83', album: "Hurry Up, We're Dreaming", durationMs: 243000, hue: 260 },
   { id: 'demo-2', name: 'Get Lucky', artists: 'Daft Punk, Pharrell Williams', album: 'Random Access Memories', durationMs: 248000, hue: 45 },
   { id: 'demo-3', name: 'Vivir Mi Vida', artists: 'Marc Anthony', album: '3.0', durationMs: 262000, hue: 12 },

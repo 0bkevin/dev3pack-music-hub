@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-export function envInt(name, fallback, min = 1, max = 10_000) {
+function envInt(name, fallback, min = 1, max = 10_000) {
   const n = parseInt(process.env[name] ?? '', 10);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));

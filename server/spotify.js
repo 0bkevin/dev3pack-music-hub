@@ -96,7 +96,10 @@ async function getAppToken() {
 export async function getHostAccessToken() {
   if (!host.accessToken) return null;
   if (Date.now() < host.expiresAt - 60_000) return host.accessToken;
-  if (!host.refreshToken) return null;
+  if (!host.refreshToken) {
+    disconnectHost();
+    return null;
+  }
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
@@ -265,8 +268,6 @@ function normalize(t) {
     album: String(t.album?.name || '').slice(0, 140),
     imageUrl: t.album?.images?.[0]?.url || null,
     durationMs: t.duration_ms || 180_000,
-    spotifyUrl: t.external_urls?.spotify || null,
-    explicit: Boolean(t.explicit),
     source: 'spotify',
   };
 }
@@ -306,7 +307,7 @@ export async function randomTrack(excludeIds = new Set()) {
         offset: String(Math.floor(Math.random() * 120)),
         market: MARKET,
       });
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${access}` } });
+      const res = await spSearchFetch(url, { headers: { Authorization: `Bearer ${access}` } });
       if (!res.ok) continue;
       const items = (await res.json()).tracks?.items || [];
       const fresh = items.filter((t) => !excludeIds.has(t.id));

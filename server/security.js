@@ -92,6 +92,7 @@ const CSP = [
   "img-src 'self' https://*.scdn.co https://*.spotifycdn.com data:",
   "connect-src 'self' ws: wss: https://*.spotify.com https://sdk.scdn.co",
   "media-src 'self' https://*.scdn.co",
+  "frame-src https://sdk.scdn.co",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "object-src 'none'",

@@ -11,7 +11,7 @@ export function createRoomRouter(room, wsHub) {
 
   router.post('/join', joinLimiter, (req, res) => {
     const client = room.join(req.body?.name);
-    if (client.error) return res.status(429).json(client);
+    if (client.error) return res.status(503).json(client);
     res.json({
       clientId: client.id,
       publicId: client.publicId,

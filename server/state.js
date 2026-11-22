@@ -258,7 +258,6 @@ export class Room {
     const stats = this.voteStats();
     return {
       type: 'state',
-      now: Date.now(),
       provider: providerMode(),
       spotifyHost: getPublicHostStatus(),
       dislikesToSkip: DISLIKES_TO_SKIP,

@@ -8,7 +8,7 @@ const ALLOWED_IMAGE_HOSTS = new Set([
   'image-cdn-fa.spotifycdn.com',
 ]);
 
-export function sanitizeImageUrl(raw) {
+function sanitizeImageUrl(raw) {
   if (!raw || typeof raw !== 'string') return null;
   if (raw.length > 512 || /[\s"'()\\<>]/.test(raw)) return null;
   try {
