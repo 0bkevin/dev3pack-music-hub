@@ -261,11 +261,11 @@
 .add-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 6px;
   height: 28px;
   width: 84px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border-strong);
   background: transparent;
@@ -277,6 +277,7 @@
   white-space: nowrap;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
 }
+.add-btn:not(:has(svg)) { justify-content: center; }
 .add-btn svg { flex-shrink: 0; }
 .add-btn:disabled {
   background: var(--accent-soft);
