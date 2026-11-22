@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
 import { DEFAULT_EMOJIS } from '../../lib/emojis.js';
-import { Equalizer, MusicNoteIcon } from '../Icons.jsx';
+import { Equalizer } from '../Icons.jsx';
 import { EmojiPickerDropdown } from './EmojiPickerDropdown.jsx';
 
 export const USER_EMOJIS = DEFAULT_EMOJIS;
@@ -11,14 +11,13 @@ export function JoinOverlay(props) {
       <div class="join-overlay" id="join-overlay">
         <div class="join-sheet">
           <div class="join-head">
-            <div class="join-mark">
-              <Show
-                when={props.selectedEmoji()}
-                fallback={<MusicNoteIcon size={22} strokeWidth={2.2} />}
-              >
-                <span class="join-mark-emoji">{props.selectedEmoji()}</span>
-              </Show>
-            </div>
+            <img
+              class="join-logo"
+              src="/dev3pack-backpack.png"
+              alt="Dev3pack"
+              width="96"
+              height="96"
+            />
             <h1>Dev3pack Music</h1>
             <p>Elige tu emoji y tu nombre para pedir canciones, o entra como anónimo.</p>
           </div>
