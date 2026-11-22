@@ -1,0 +1,25 @@
+{
+  "name": "dev3pack-hub-music",
+  "version": "1.0.0",
+  "description": "Collaborative music queue for Dev3pack build stations — Spotify search, community voting, shared display screen.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "solid-js": "1.9.19",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1",
+    "vite": "7.3.8",
+    "vite-plugin-solid": "2.11.16"
+  }
+}
