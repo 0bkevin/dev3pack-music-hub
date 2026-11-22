@@ -1,0 +1,148 @@
+/* =========================================================
+   SONNER TOASTER — Stacked, semantic vinotinto-harmonized toasts
+   ========================================================= */
+
+.sonner-toaster {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 95;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(368px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.sonner-toaster.above-player {
+  bottom: calc(var(--player-h) + 16px);
+}
+
+.sonner-toast {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 22px;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 12px 12px 13px;
+  border-radius: var(--r-lg);
+  background: rgba(24, 9, 14, 0.96);
+  border: 1px solid var(--border-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.58);
+  color: var(--fg);
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 280ms ease, transform 360ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+}
+.sonner-toast.leaving {
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+/* Subtle semantic tint per variant, harmonized with dark vinotinto */
+.sonner-toast.success {
+  background: linear-gradient(135deg, rgba(16, 36, 26, 0.96), rgba(22, 12, 16, 0.96));
+  border-color: rgba(74, 222, 128, 0.34);
+}
+.sonner-toast.error {
+  background: linear-gradient(135deg, rgba(48, 12, 20, 0.96), rgba(24, 9, 14, 0.96));
+  border-color: rgba(255, 107, 122, 0.44);
+}
+.sonner-toast.info {
+  background: linear-gradient(135deg, rgba(58, 18, 31, 0.96), rgba(24, 9, 14, 0.96));
+  border-color: rgba(232, 93, 127, 0.4);
+}
+
+.sonner-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sonner-icon.success {
+  background: rgba(74, 222, 128, 0.14);
+  color: var(--like);
+}
+.sonner-icon.error {
+  background: rgba(255, 107, 122, 0.16);
+  color: var(--danger);
+}
+.sonner-icon.info {
+  background: rgba(232, 93, 127, 0.16);
+  color: #ff9ab2;
+}
+
+.sonner-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sonner-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.sonner-desc {
+  font-size: 12px;
+  color: var(--fg-secondary);
+  line-height: 1.4;
+}
+
+.sonner-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--fg-tertiary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sonner-close:hover {
+    background: var(--surface-hover);
+    color: #fff;
+  }
+}
+
+@media (max-width: 640px) {
+  .sonner-toaster {
+    right: 50%;
+    transform: translateX(50%);
+    bottom: 14px;
+  }
+  .sonner-toaster.above-player {
+    bottom: calc(var(--player-h) + 12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sonner-toast {
+    transition: opacity 180ms ease;
+    @starting-style {
+      opacity: 0;
+      transform: none;
+    }
+  }
+  .sonner-toast.leaving {
+    transform: none;
+  }
+}
