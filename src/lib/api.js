@@ -43,9 +43,21 @@ export function hashCode(s) {
   return Math.abs(h);
 }
 
+// Curated fallback gradients engineered to harmonize with Caracas 2026 vinotinto (#551727)
+const VINOTINTO_GRADIENTS = [
+  'linear-gradient(135deg, #5e1629, #a83254)',
+  'linear-gradient(135deg, #431538, #8c2d64)',
+  'linear-gradient(135deg, #6e1423, #c23b57)',
+  'linear-gradient(135deg, #4f1a24, #9f6342)',
+  'linear-gradient(135deg, #521830, #a04468)',
+  'linear-gradient(135deg, #661926, #b54a4a)',
+  'linear-gradient(135deg, #351633, #7e2b54)',
+  'linear-gradient(135deg, #551727, #b3556d)',
+];
+
 export function trackGradient(track) {
-  const hue = track?.hue ?? (hashCode(track?.id || '0') % 360);
-  return `linear-gradient(135deg, hsl(${hue},75%,42%), hsl(${(hue + 65) % 360},75%,50%))`;
+  const idx = hashCode(String(track?.id || '0')) % VINOTINTO_GRADIENTS.length;
+  return VINOTINTO_GRADIENTS[idx];
 }
 
 export function fmtMs(ms) {
