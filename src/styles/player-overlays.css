@@ -86,7 +86,16 @@
 }
 .emoji-dd-trigger:active { transform: scale(0.96); }
 .emoji-dd-val { font-size: 19px; line-height: 1; }
-.emoji-dd-caret { font-size: 11px; color: var(--fg-tertiary); }
+.emoji-dd-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-tertiary);
+  transition: transform 180ms var(--ease-out), color 150ms ease;
+}
+.emoji-dd-trigger.open .emoji-dd-caret {
+  transform: rotate(180deg);
+  color: #fff;
+}
 
 .emoji-dd-menu {
   position: absolute;

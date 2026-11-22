@@ -88,3 +88,21 @@ export function HistoryIcon() {
     </svg>
   );
 }
+
+export function ChevronDownIcon(props) {
+  return (
+    <svg
+      width={props.size || 15}
+      height={props.size || 15}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width={props.strokeWidth || 2.1}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}

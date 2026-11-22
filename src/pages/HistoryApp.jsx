@@ -1,7 +1,7 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { Cover } from '../components/Cover.jsx';
-import { SearchIcon } from '../components/Icons.jsx';
+import { ChevronDownIcon, SearchIcon } from '../components/Icons.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const STATUS_LABELS = {
@@ -398,7 +398,9 @@ export function HistoryApp() {
                             <span class="vote-pill pos">👍 {person.totalLikes}</span>
                             <span class="vote-pill neg">👎 {person.totalDislikes}</span>
                           </span>
-                          <span class="acc-chevron" aria-hidden="true">▾</span>
+                          <span class="acc-chevron" aria-hidden="true">
+                            <ChevronDownIcon size={15} strokeWidth={2.1} />
+                          </span>
                         </button>
 
                         <div class="acc-panel">

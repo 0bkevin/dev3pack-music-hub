@@ -1,6 +1,6 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { searchEmojis, extractSingleEmoji } from '../../lib/emojis.js';
-import { SearchIcon } from '../Icons.jsx';
+import { ChevronDownIcon, SearchIcon } from '../Icons.jsx';
 
 export function EmojiPickerDropdown(props) {
   const [open, setOpen] = createSignal(false);
@@ -59,7 +59,9 @@ export function EmojiPickerDropdown(props) {
         onClick={toggle}
       >
         <span class="emoji-dd-val">{props.value()}</span>
-        <span class="emoji-dd-caret" aria-hidden="true">▾</span>
+        <span class="emoji-dd-caret" aria-hidden="true">
+          <ChevronDownIcon size={13} strokeWidth={2.2} />
+        </span>
       </button>
 
       <Show when={open()}>
