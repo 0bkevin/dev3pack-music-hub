@@ -7,7 +7,7 @@ export function createHistoryRouter(db) {
 
   router.get('/', historyLimiter, (_req, res) => {
     res.json({
-      topRequesters: db.getTopRequesters(5),
+      topRequesters: db.getTopRequesters(3),
       people: db.getAllRequesters(100),
       history: db.getFullHistory(200),
       totals: db.getTotals(),

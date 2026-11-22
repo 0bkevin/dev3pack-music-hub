@@ -72,12 +72,21 @@ describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () =>
     }
     await new Promise((r) => setTimeout(r, 20));
 
-    const top5 = db.getTopRequesters(5);
-    assert.equal(top5.length, 5);
-    assert.equal(top5[0].name, 'Ana');
-    assert.equal(top5[0].emoji, '🎧');
-    assert.equal(top5[0].songCount, 3);
-    assert.equal('ip_hash' in top5[0], false);
+    const top3 = db.getTopRequesters(3);
+    assert.equal(top3.length, 3);
+    assert.equal(top3[0].name, 'Ana');
+    assert.equal(top3[0].emoji, '🎧');
+    assert.equal(top3[0].songCount, 3);
+    assert.equal(top3[0].totalDislikes, 5);
+    assert.equal(top3[0].totalLikes, 0);
+    assert.equal('ip_hash' in top3[0], false);
+
+    // Live vote updates persist immediately on the playing track
+    room.vote(users[1].id, 1, 't-2');
+    room.vote(users[2].id, 1, 't-2');
+    const anaAfterLikes = db.getHistoryByUser(users[0].publicId);
+    assert.equal(anaAfterLikes.user.totalLikes, 2);
+    assert.equal(anaAfterLikes.user.totalDislikes, 5);
 
     const full = db.getFullHistory(50);
     assert.equal(full.length, 10);

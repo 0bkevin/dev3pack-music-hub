@@ -97,11 +97,15 @@ export class Room {
     const hadVote = this.votes.delete(id);
     this.voteActions.delete(id);
     this.enqueueLog.delete(id);
-    if (hadVote && this.current && !this.advancing && this.voteStats().dislikes >= DISLIKES_TO_SKIP) {
-      this.advance('skipped').catch((err) => console.error('advance error:', err));
-    } else {
-      this.emitState();
+    if (hadVote && this.current) {
+      const stats = this.voteStats();
+      if (this.current.historyId) this.db?.updateTrackVotes(this.current.historyId, stats);
+      if (!this.advancing && stats.dislikes >= DISLIKES_TO_SKIP) {
+        this.advance('skipped').catch((err) => console.error('advance error:', err));
+        return;
+      }
     }
+    this.emitState();
   }
 
   enqueue(clientId, rawTrack) {
@@ -186,6 +190,7 @@ export class Room {
     if (value !== 0) this.broadcast({ type: 'reaction', vote: value, ts: Date.now() });
 
     const stats = this.voteStats();
+    if (this.current.historyId) this.db?.updateTrackVotes(this.current.historyId, stats);
     const voteState = this.clientVoteState(clientId);
     if (stats.dislikes >= DISLIKES_TO_SKIP) {
       this.advance('skipped').catch((err) => console.error('advance error:', err));

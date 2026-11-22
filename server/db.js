@@ -127,6 +127,13 @@ export class MusicDB {
       .run('playing', Date.now(), historyId);
   }
 
+  updateTrackVotes(historyId, { likes, dislikes }) {
+    if (!historyId) return;
+    this.db
+      .prepare('UPDATE track_history SET likes = ?, dislikes = ? WHERE id = ?')
+      .run(likes || 0, dislikes || 0, historyId);
+  }
+
   finalizeTrack(historyId, { status, likes, dislikes }) {
     if (!historyId) return;
     this.db
@@ -149,7 +156,7 @@ export class MusicDB {
     return map;
   }
 
-  getTopRequesters(limit = 5) {
+  getTopRequesters(limit = 3) {
     return this.db
       .prepare(`
         SELECT
@@ -158,11 +165,13 @@ export class MusicDB {
           u.emoji,
           u.anonymous,
           COUNT(h.id) AS songCount,
+          COALESCE(SUM(h.likes), 0) AS totalLikes,
+          COALESCE(SUM(h.dislikes), 0) AS totalDislikes,
           MAX(h.requested_at) AS lastRequestedAt
         FROM users u
         JOIN track_history h ON h.user_id = u.id
         GROUP BY u.id
-        ORDER BY songCount DESC, lastRequestedAt DESC
+        ORDER BY songCount DESC, totalLikes DESC, lastRequestedAt DESC
         LIMIT ?
       `)
       .all(limit)
@@ -172,6 +181,8 @@ export class MusicDB {
         emoji: r.emoji,
         anonymous: Boolean(r.anonymous),
         songCount: Number(r.songCount),
+        totalLikes: Number(r.totalLikes),
+        totalDislikes: Number(r.totalDislikes),
         lastRequestedAt: Number(r.lastRequestedAt),
       }));
   }
@@ -218,7 +229,15 @@ export class MusicDB {
   getHistoryByUser(userId, limit = 150) {
     const user = this.db
       .prepare(`
-        SELECT u.id, u.name, u.emoji, u.anonymous, u.created_at, COUNT(h.id) AS songCount
+        SELECT
+          u.id,
+          u.name,
+          u.emoji,
+          u.anonymous,
+          u.created_at,
+          COUNT(h.id) AS songCount,
+          COALESCE(SUM(h.likes), 0) AS totalLikes,
+          COALESCE(SUM(h.dislikes), 0) AS totalDislikes
         FROM users u
         LEFT JOIN track_history h ON h.user_id = u.id
         WHERE u.id = ?
@@ -246,6 +265,8 @@ export class MusicDB {
         anonymous: Boolean(user.anonymous),
         createdAt: Number(user.created_at),
         songCount: Number(user.songCount),
+        totalLikes: Number(user.totalLikes),
+        totalDislikes: Number(user.totalDislikes),
       },
       history,
     };
