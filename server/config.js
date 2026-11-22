@@ -8,8 +8,14 @@ function envInt(name, fallback, min = 1, max = 10_000) {
 
 export const PORT = envInt('PORT', 3000, 1, 65535);
 export const DB_PATH = (process.env.DB_PATH || './data/music-hub.sqlite').trim();
+export const DB_RETENTION_MS = envInt('DB_RETENTION_HOURS', 72, 1, 720) * 60 * 60_000;
+export const IP_HASH_SALT = (process.env.IP_HASH_SALT || '').trim();
 export const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 export const HOST_ADMIN_SECRET = (process.env.HOST_ADMIN_SECRET || '').trim();
+export const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
 export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';

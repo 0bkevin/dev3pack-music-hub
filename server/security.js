@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { TRUST_PROXY } from './config.js';
+import { ALLOWED_ORIGINS, TRUST_PROXY } from './config.js';
 
 // Ephemeral per-boot salt for IP pseudonymization in structured audit logs (ISO 27701)
 const LOG_SALT = crypto.randomBytes(16).toString('hex');
@@ -54,6 +54,9 @@ export function isHttpsReq(req) {
 export function isAllowedWsOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return true;
+  if (ALLOWED_ORIGINS.length > 0) {
+    return ALLOWED_ORIGINS.includes(origin);
+  }
   const host = req.headers.host;
   if (!host) return false;
   try {
@@ -65,15 +68,27 @@ export function isAllowedWsOrigin(req) {
 
 export function makeIpLimiter(maxHits, windowMs, bucket) {
   const hits = new Map();
+  const globalHits = [];
+  const globalMax = maxHits * 4;
+
   return (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     const now = Date.now();
+
+    // Global backstop prevents total bypass if proxy X-Forwarded-For is misconfigured
+    while (globalHits.length && now - globalHits[0] >= windowMs) globalHits.shift();
+    if (globalHits.length >= globalMax) {
+      auditLog('rate_limit.global_exceeded', { bucket, ipHash: hashIp(ip) });
+      return res.status(429).json({ error: 'Servidor temporalmente ocupado. Intenta en un momento.' });
+    }
+
     const log = (hits.get(ip) || []).filter((ts) => now - ts < windowMs);
     if (log.length >= maxHits) {
       auditLog('rate_limit.exceeded', { bucket, ipHash: hashIp(ip) });
       return res.status(429).json({ error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' });
     }
     log.push(now);
+    globalHits.push(now);
     hits.set(ip, log);
     if (hits.size > 2000) {
       for (const [k, v] of hits) {
@@ -86,7 +101,7 @@ export function makeIpLimiter(maxHits, windowMs, bucket) {
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://sdk.scdn.co",
+  "script-src 'self' https://sdk.scdn.co",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' https://*.scdn.co https://*.spotifycdn.com data:",

@@ -11,13 +11,7 @@
 </head>
 <body>
   <div id="root"></div>
-  <script>
-    window._spSdkReady = false;
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      window._spSdkReady = true;
-      window.dispatchEvent(new Event('spotify-sdk-ready'));
-    };
-  </script>
+  <script src="/spotify-init.js"></script>
   <script src="https://sdk.scdn.co/spotify-player.js" async></script>
   <script type="module" src="/src/screen-main.jsx"></script>
 </body>
