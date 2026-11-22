@@ -50,34 +50,6 @@ export function QueueRail(props) {
             </For>
           </Show>
         </div>
-
-        <div class="rail-listeners">
-          <div class="rail-listeners-head">
-            <span>
-              <i class="live-dot" /> En la sala
-            </span>
-            <span class="tabular">{props.listenerCount()}</span>
-          </div>
-          <div class="people-row">
-            <For each={props.listeners()}>
-              {(c) =>
-                props.selfPublicId() === c.id ? (
-                  <button
-                    class="person-chip me"
-                    id="who-btn"
-                    type="button"
-                    title="Cambiar nombre"
-                    onClick={props.onOpenJoin}
-                  >
-                    {c.name}
-                  </button>
-                ) : (
-                  <span class="person-chip">{c.name}</span>
-                )
-              }
-            </For>
-          </div>
-        </div>
       </aside>
     </>
   );

@@ -7,7 +7,6 @@
   .search-clear:hover { background: rgba(255, 235, 240, 0.2); color: #fff; }
   .queue-toggle-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
   .rail-close-btn:hover { background: var(--surface-hover); color: #fff; }
-  .person-chip.me:hover { background: var(--wine-mid); border-color: var(--accent); }
   .react-pill:hover { background: var(--surface-hover); border-color: var(--border-strong); }
   .mood-pill:hover { background: var(--surface-hover); color: #fff; border-color: var(--border-strong); }
   .track-row:hover { background: var(--surface); }
@@ -33,7 +32,6 @@
   .pb-vote:active,
   .add-btn:not(:disabled):active,
   .mood-pill:active,
-  .person-chip.me:active,
   .queue-toggle-btn:active,
   .btn-primary:active,
   .btn-subtle:active,

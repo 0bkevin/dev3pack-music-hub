@@ -76,7 +76,6 @@ export function PlayerApp() {
 
   const current = () => room.state()?.current || null;
   const queue = () => room.state()?.queue || [];
-  const listeners = () => room.state()?.listeners || [];
   const dislikesToSkip = () => room.state()?.dislikesToSkip || 5;
   const dislikes = () => room.state()?.dislikes || 0;
   const likes = () => room.state()?.likes || 0;
@@ -225,10 +224,6 @@ export function PlayerApp() {
             open={queueOpen}
             onClose={() => setQueueOpen(false)}
             queue={queue}
-            listeners={listeners}
-            listenerCount={() => room.state()?.listenerCount || 0}
-            selfPublicId={() => session()?.publicId}
-            onOpenJoin={openJoinOverlay}
           />
         </div>
 
