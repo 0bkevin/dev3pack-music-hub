@@ -30,6 +30,10 @@
   --r-lg: 10px;
   --r-xl: 12px;
 
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --player-h: 72px;
   --queue-w: 300px;
@@ -87,14 +91,16 @@ a:focus-visible {
 .eq i {
   display: block;
   width: 2px;
-  height: 3px;
+  height: 11px;
   border-radius: 1px;
   background: var(--accent);
+  transform-origin: bottom;
+  transform: scaleY(0.28);
   animation: eqBar 0.85s ease-in-out infinite;
 }
 .eq i:nth-child(2) { animation-delay: 0.18s; }
 .eq i:nth-child(3) { animation-delay: 0.36s; }
-@keyframes eqBar { 0%, 100% { height: 3px; } 50% { height: 11px; } }
+@keyframes eqBar { 0%, 100% { transform: scaleY(0.28); } 50% { transform: scaleY(1); } }
 
 .live-dot {
   width: 6px;
@@ -135,7 +141,7 @@ a:focus-visible {
   background-position: center;
   filter: blur(110px) saturate(1.3);
   opacity: 0.16;
-  transition: background-image 1.2s ease, opacity 1s ease;
+  transition: opacity 450ms var(--ease-out);
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
   -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
 }
@@ -238,7 +244,6 @@ a:focus-visible {
   transition: background 0.15s, border-color 0.15s;
 }
 .search-input::placeholder { color: var(--fg-tertiary); }
-.search-input:hover { background: var(--surface-hover); }
 .search-input:focus {
   background: rgba(85, 23, 39, 0.35);
   border-color: rgba(232, 93, 127, 0.55);
@@ -257,9 +262,14 @@ a:focus-visible {
   display: grid;
   place-items: center;
   font-size: 13px;
-  transition: background 0.15s, color 0.15s;
+  opacity: 1;
+  transform: scale(1);
+  transition: background-color 150ms ease, color 150ms ease, opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.9);
+  }
 }
-.search-clear:hover { background: rgba(255, 235, 240, 0.2); color: #fff; }
 
 .topbar-actions {
   display: flex;
@@ -282,7 +292,7 @@ a:focus-visible {
   color: var(--fg-secondary);
   cursor: pointer;
   max-width: 170px;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
 }
 .user-btn-name {
   white-space: nowrap;
@@ -302,11 +312,7 @@ a:focus-visible {
   font-weight: 500;
   color: var(--fg);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.12s;
-}
-.queue-toggle-btn:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  transition: background-color 150ms ease, border-color 150ms ease, transform 160ms var(--ease-out);
 }
 .queue-toggle-count {
   font-size: 11px;
@@ -330,15 +336,10 @@ a:focus-visible {
   line-height: 1;
   cursor: pointer;
   place-items: center;
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
 }
-.rail-close-btn:hover { background: var(--surface-hover); color: #fff; }
 .drawer-backdrop {
   display: none;
-}
-.user-btn:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
-  color: #fff;
 }
 .user-avatar {
   width: 20px;
@@ -364,11 +365,7 @@ a:focus-visible {
   font-size: 12.5px;
   font-weight: 500;
   color: #fff;
-  transition: all 0.15s;
-}
-.tv-link:hover {
-  background: var(--wine-mid);
-  border-color: rgba(232, 93, 127, 0.6);
+  transition: background-color 150ms ease, border-color 150ms ease, transform 160ms var(--ease-out);
 }
 
 /* ---------- Hero Now Playing Stage ---------- */
@@ -458,13 +455,14 @@ a:focus-visible {
   font-weight: 500;
   color: var(--fg);
   cursor: pointer;
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
 }
-.react-pill:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+.react-pill .emoji {
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 160ms var(--ease-out);
 }
-.react-pill .emoji { font-size: 15px; line-height: 1; }
+.react-pill.active .emoji { transform: scale(1.12); }
 .react-pill .count {
   font-variant-numeric: tabular-nums;
   color: var(--fg-secondary);
@@ -503,9 +501,9 @@ a:focus-visible {
   height: 3px;
   border-radius: 1.5px;
   background: rgba(255, 232, 238, 0.16);
-  transition: background 0.2s;
+  transition: background-color 180ms var(--ease-out), transform 180ms var(--ease-out);
 }
-.skip-dots i.on { background: var(--danger); }
+.skip-dots i.on { background: var(--danger); transform: scaleY(1.35); }
 
 /* ---------- Organized Track Browser ---------- */
 
@@ -549,12 +547,7 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.14s, color 0.14s, border-color 0.14s;
-}
-.mood-pill:hover {
-  background: var(--surface-hover);
-  color: #fff;
-  border-color: var(--border-strong);
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 160ms var(--ease-out);
 }
 .mood-pill.active {
   background: var(--wine);
@@ -588,10 +581,8 @@ a:focus-visible {
   margin: 0 -10px;
   border-radius: var(--r-sm);
   border-bottom: 1px solid rgba(255, 232, 238, 0.04);
-  transition: background 0.12s ease;
 }
 .track-row:last-child { border-bottom: none; }
-.track-row:hover { background: var(--surface); }
 
 .track-idx {
   font-size: 12px;
@@ -647,12 +638,7 @@ a:focus-visible {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.14s ease;
-}
-.add-btn:hover {
-  background: var(--wine-mid);
-  color: #fff;
-  border-color: var(--accent);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
 }
 .add-btn:disabled {
   background: var(--accent-soft);
@@ -711,9 +697,7 @@ a:focus-visible {
   align-items: center;
   padding: 8px;
   border-radius: var(--r-sm);
-  transition: background 0.12s;
 }
-.q-item:hover { background: var(--surface); }
 .q-item.next-up {
   background: rgba(85, 23, 39, 0.28);
 }
@@ -863,10 +847,12 @@ a:focus-visible {
 .progress-fill {
   display: block;
   height: 100%;
-  width: 0%;
+  width: 100%;
   background: var(--accent);
   border-radius: 2px;
-  transition: width 0.5s linear;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.5s linear;
 }
 
 .pb-right {
@@ -888,9 +874,8 @@ a:focus-visible {
   font-weight: 500;
   color: var(--fg-secondary);
   cursor: pointer;
-  transition: all 0.14s;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
 }
-.pb-vote:hover { background: var(--surface-hover); color: #fff; }
 .pb-vote.like.active { background: var(--like-soft); border-color: rgba(74, 222, 128, 0.4); color: var(--like); }
 .pb-vote.dislike.active { background: var(--danger-soft); border-color: rgba(255, 107, 122, 0.45); color: var(--danger); }
 
@@ -914,6 +899,9 @@ a:focus-visible {
   background: rgba(16, 4, 8, 0.62);
   backdrop-filter: blur(20px) saturate(1.15);
   -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  opacity: 1;
+  transition: opacity 200ms var(--ease-out);
+  @starting-style { opacity: 0; }
 }
 
 .join-sheet {
@@ -927,6 +915,13 @@ a:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
 }
 
 .join-head {
@@ -1004,9 +999,8 @@ a:focus-visible {
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.14s;
+  transition: background-color 140ms ease, transform 160ms var(--ease-out);
 }
-.btn-primary:hover { background: #942944; }
 
 .btn-subtle {
   width: 100%;
@@ -1018,16 +1012,15 @@ a:focus-visible {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.14s, color 0.14s;
+  transition: background-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
 }
-.btn-subtle:hover { background: var(--surface-hover); color: #fff; }
 
-/* Toast */
+/* Toast (Sonner-inspired interruptible transition, same-edge enter/exit) */
 .toast {
   position: fixed;
   bottom: calc(var(--player-h) + 16px);
   left: 50%;
-  transform: translateX(-50%) translateY(12px);
+  transform: translateX(-50%) translateY(10px) scale(0.97);
   background: rgba(28, 10, 16, 0.96);
   border: 1px solid rgba(255, 107, 122, 0.45);
   color: #fff;
@@ -1043,9 +1036,9 @@ a:focus-visible {
   pointer-events: none;
   z-index: 80;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 320ms ease, transform 320ms var(--ease-out);
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 .toast.ok { border-color: rgba(232, 93, 127, 0.55); }
 
 @media (max-width: 980px) {
@@ -1062,7 +1055,9 @@ a:focus-visible {
     z-index: 44;
     background: rgba(10, 3, 6, 0.62);
     backdrop-filter: blur(6px);
-    animation: fadeIn 0.2s ease;
+    opacity: 1;
+    transition: opacity 240ms var(--ease-out);
+    @starting-style { opacity: 0; }
   }
   .queue-rail {
     position: fixed;
@@ -1074,7 +1069,7 @@ a:focus-visible {
     background: rgba(20, 7, 11, 0.98);
     box-shadow: -20px 0 60px rgba(0, 0, 0, 0.65);
     transform: translateX(100%);
-    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 360ms var(--ease-drawer);
   }
   .queue-rail.open {
     transform: translateX(0);
@@ -1131,11 +1126,6 @@ a:focus-visible {
   .add-btn { width: 74px; font-size: 11.5px; }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 /* =========================================================
    SCREEN / TV DISPLAY — Dev3pack CCS 2026 Hero + Waves + Compact Dock + Distant Queue
    ========================================================= */
@@ -1154,7 +1144,6 @@ a:focus-visible {
   inset: 0;
   background: #551727 url('/bg-ccs-2026.svg') 16% 43% / min(84vw, 136vh) auto no-repeat;
   z-index: 0;
-  transition: background-position 0.6s ease, background-size 0.6s ease;
 }
 .tv-screen:not(.playing) .tv-svg-bg {
   background-position: center 45%;
@@ -1255,10 +1244,9 @@ a:focus-visible {
   flex-direction: column;
   overflow: hidden;
   opacity: 0.52;
-  transition: opacity 0.35s ease;
+  transition: opacity 220ms var(--ease-out);
   z-index: 7;
 }
-.tv-queue:hover { opacity: 0.92; }
 @media (max-width: 1020px) {
   .tv-queue { display: none; }
   .tv-svg-bg { background-position: center 43%; background-size: min(98vw, 145vh) auto; }
@@ -1304,6 +1292,13 @@ a:focus-visible {
   align-items: center;
   padding: 6px 5px;
   border-radius: var(--r-sm);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 .tv-q-item:first-child { background: rgba(255, 235, 240, 0.07); }
 .tv-q-item img, .tv-q-item .cover-ph {
@@ -1361,10 +1356,12 @@ a:focus-visible {
 .tv-progress i {
   display: block;
   height: 100%;
-  width: 0%;
+  width: 100%;
   background: rgba(255, 255, 255, 0.92);
   border-radius: 2px;
-  transition: width 0.5s linear;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.5s linear;
 }
 .tv-time {
   font-size: 11.5px;
@@ -1472,9 +1469,8 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 160ms var(--ease-out);
 }
-.tv-audio-btn:hover { background: #fff; }
 .tv-audio-btn.on {
   background: rgba(22, 6, 11, 0.48);
   color: rgba(255, 240, 244, 0.84);
@@ -1518,30 +1514,30 @@ a:focus-visible {
   line-height: 1;
   user-select: none;
   will-change: transform, opacity;
-  animation: fxSoftFade 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fxSoftFade 2.5s var(--ease-out) forwards;
 }
 .fx-burst.like { --fx-glow: rgba(74, 222, 128, 0.55); }
 .fx-burst.dislike { --fx-glow: rgba(255, 107, 122, 0.6); }
 @keyframes fxSoftFade {
   0% {
     opacity: 0;
-    transform: translate3d(0, 14px, 0) scale(0.72);
-    filter: blur(6px) drop-shadow(0 0 18px var(--fx-glow));
+    transform: translate3d(0, 12px, 0) scale(0.88);
+    filter: blur(4px) drop-shadow(0 0 16px var(--fx-glow));
   }
-  20% {
+  18% {
     opacity: 0.95;
-    transform: translate3d(calc(var(--drift-x, 0px) * 0.25), -10px, 0) scale(1.06);
-    filter: blur(0px) drop-shadow(0 0 22px var(--fx-glow));
-  }
-  65% {
-    opacity: 0.78;
-    transform: translate3d(calc(var(--drift-x, 0px) * 0.7), -42px, 0) scale(1);
+    transform: translate3d(calc(var(--drift-x, 0px) * 0.25), -8px, 0) scale(1.04);
     filter: blur(0px) drop-shadow(0 0 20px var(--fx-glow));
+  }
+  66% {
+    opacity: 0.78;
+    transform: translate3d(calc(var(--drift-x, 0px) * 0.7), -38px, 0) scale(1);
+    filter: blur(0px) drop-shadow(0 0 18px var(--fx-glow));
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--drift-x, 0px), -76px, 0) scale(0.92);
-    filter: blur(8px) drop-shadow(0 0 14px var(--fx-glow));
+    transform: translate3d(var(--drift-x, 0px), -70px, 0) scale(0.94);
+    filter: blur(6px) drop-shadow(0 0 12px var(--fx-glow));
   }
 }
 
@@ -1549,7 +1545,7 @@ a:focus-visible {
   position: absolute;
   top: 28px;
   left: 50%;
-  transform: translateX(-50%) translateY(-14px);
+  transform: translateX(-50%) translateY(-10px) scale(0.97);
   z-index: 40;
   padding: 10px 18px;
   border-radius: var(--r-md);
@@ -1561,6 +1557,79 @@ a:focus-visible {
   color: #fff;
   opacity: 0;
   pointer-events: none;
-  transition: all 0.28s ease;
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
 }
-.tv-skip-banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.tv-skip-banner.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+
+/* =========================================================
+   POINTER-GATED HOVERS (prevents sticky hover on touch devices)
+   ========================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  .search-input:hover { background: var(--surface-hover); }
+  .search-clear:hover { background: rgba(255, 235, 240, 0.2); color: #fff; }
+  .user-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); color: #fff; }
+  .queue-toggle-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .rail-close-btn:hover { background: var(--surface-hover); color: #fff; }
+  .tv-link:hover { background: var(--wine-mid); border-color: rgba(232, 93, 127, 0.6); }
+  .react-pill:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .mood-pill:hover { background: var(--surface-hover); color: #fff; border-color: var(--border-strong); }
+  .track-row:hover { background: var(--surface); }
+  .add-btn:not(:disabled):hover { background: var(--wine-mid); color: #fff; border-color: var(--accent); }
+  .q-item:hover { background: var(--surface); }
+  .pb-vote:hover { background: var(--surface-hover); color: #fff; }
+  .btn-primary:hover { background: #942944; }
+  .btn-subtle:hover { background: var(--surface-hover); color: #fff; }
+  .tv-queue:hover { opacity: 0.92; }
+  .tv-audio-btn:hover { background: #fff; }
+}
+
+/* =========================================================
+   REDUCED MOTION (gentler opacity/color, drop positional motion)
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .eq i {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+  .react-pill:active,
+  .pb-vote:active,
+  .add-btn:not(:disabled):active,
+  .mood-pill:active,
+  .user-btn:active,
+  .tv-link:active,
+  .queue-toggle-btn:active,
+  .btn-primary:active,
+  .btn-subtle:active,
+  .tv-audio-btn:active,
+  .react-pill.active .emoji,
+  .skip-dots i.on {
+    transform: none;
+  }
+  .join-sheet,
+  .toast,
+  .tv-skip-banner,
+  .tv-q-item,
+  .search-clear {
+    transition: opacity 180ms ease;
+    @starting-style {
+      opacity: 0;
+      transform: none;
+    }
+  }
+  .toast { transform: translateX(-50%); }
+  .toast.show { transform: translateX(-50%); }
+  .tv-skip-banner { transform: translateX(-50%); }
+  .tv-skip-banner.show { transform: translateX(-50%); }
+  .queue-rail { transition: opacity 180ms ease; }
+  .fx-burst {
+    animation: fxReducedFade 1.8s ease forwards;
+  }
+  @keyframes fxReducedFade {
+    0% { opacity: 0; }
+    20% { opacity: 0.9; }
+    75% { opacity: 0.75; }
+    100% { opacity: 0; }
+  }
+}
