@@ -9,7 +9,14 @@ import {
   MAX_VOTES_PER_TRACK,
   MAX_CLIENTS,
 } from './config.js';
-import { MIN_DURATION_MS, MAX_DURATION_MS, sanitizeTrack, sanitizeEmoji, randomEmoji } from './sanitize.js';
+import {
+  MIN_DURATION_MS,
+  MAX_DURATION_MS,
+  sanitizeTrack,
+  sanitizeEmoji,
+  randomEmoji,
+  validateDisplayName,
+} from './sanitize.js';
 import { randomTrack, providerMode, playTrackOnHost, getPublicHostStatus } from './spotify.js';
 
 export { sanitizeTrack };
@@ -76,10 +83,12 @@ export class Room {
     if (this.clients.size >= MAX_CLIENTS) {
       return { error: 'La sala alcanzó su capacidad máxima.', status: 503 };
     }
-    const clean = typeof name === 'string'
-      ? name.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 24)
-      : '';
-    const anon = !clean;
+    const checked = validateDisplayName(name);
+    if (checked.error) {
+      return { error: checked.error, code: 'invalid_name', status: 400 };
+    }
+    const anon = checked.anonymous;
+    const clean = checked.name;
 
     if (!anon) {
       const lower = clean.toLowerCase();

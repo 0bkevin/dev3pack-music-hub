@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room, sanitizeTrack } from '../server/state.js';
+import { validateDisplayName } from '../server/sanitize.js';
 
 describe('Security hardening & adversarial input sanitization', () => {
   it('blocks forged track IDs, CSS-injection imageUrls, extreme durations, and invalid URIs', () => {
@@ -100,5 +101,27 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.equal('refreshToken' in snap.spotifyHost, false);
     assert.equal('sessionToken' in snap.spotifyHost, false);
     clearTimeout(room.endTimer);
+  });
+
+  it('enforces display name length limits and blocks offensive, political-troll, and gore names without false positives', () => {
+    // Valid normal names (including accented Spanish & spaced full names)
+    for (const okName of ['Kevin Bravo', 'Sofía', 'Mateo', 'Valeria', 'Sebastián', 'Ana María', 'Andrés R.', 'José']) {
+      const r = validateDisplayName(okName);
+      assert.equal(r.error, undefined, `Should allow normal name: ${okName}`);
+      assert.equal(r.anonymous, false);
+    }
+
+    // Length bounds (min 2, max 20)
+    assert.ok(validateDisplayName('A').error);
+    assert.ok(validateDisplayName('Este nombre es demasiado largo para entrar').error);
+
+    // Blocked names: dictators/political figures, leetspeak/spaced evasions, profanity, gore
+    for (const bad of [
+      'Hitler', 'H1tl3r', 'H i t l e r', 'Mussolini', 'Musoline', 'Trump', 'Donald Trump',
+      'Nazi', 'Puta', 'Maricón', 'Mamaguevo', 'FuckYou', 'GoreMaster', 'Decapitado', 'Suicidio',
+    ]) {
+      const r = validateDisplayName(bad);
+      assert.ok(r.error, `Should block inappropriate name: ${bad}`);
+    }
   });
 });

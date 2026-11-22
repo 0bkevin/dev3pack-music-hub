@@ -39,7 +39,7 @@ export function JoinOverlay(props) {
               ref={props.inputRef}
               class={`join-input${props.error?.() ? ' has-error' : ''}`}
               id="name-input"
-              maxLength={24}
+              maxLength={20}
               value={props.nameInput()}
               onInput={(e) => props.onNameInput(e.currentTarget.value)}
               onKeyDown={(e) => {

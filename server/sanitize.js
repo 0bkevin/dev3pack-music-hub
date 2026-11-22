@@ -2,6 +2,89 @@ import { MAX_TRACK_DURATION_MS } from './config.js';
 
 export const MIN_DURATION_MS = 15_000;
 export const MAX_DURATION_MS = MAX_TRACK_DURATION_MS;
+export const MIN_NAME_LENGTH = 2;
+export const MAX_NAME_LENGTH = 20;
+
+const VALID_NAME_CHARS = /^[\p{L}\p{N} ._'-]+$/u;
+
+// Substring patterns checked against space-stripped, accent-stripped, leetspeak-folded text
+const BLOCKED_SUBSTRINGS = [
+  // Extremist / dictatorial / political figures
+  'hitler', 'mussolin', 'musolin', 'stalin', 'pinochet', 'maduro', 'chavez',
+  'trump', 'binladen', 'nazi', 'fascist', 'holocaust', 'gestapo', 'fuhrer',
+  // Obscene / profanity (ES / VE / EN)
+  'mamaguevo', 'mamahuevo', 'maricon', 'marico', 'malparido', 'gonorrea',
+  'carechimba', 'gilipollas', 'pendejo', 'cabron', 'chingar', 'chinga',
+  'mierda', 'pajero', 'follar', 'boludo', 'pelotudo', 'culiao', 'huevon', 'webon',
+  'motherfucker', 'fuck', 'bitch', 'asshole', 'cunt', 'whore', 'nigger', 'nigga',
+  'faggot', 'retard', 'porno', 'hentai', 'orgia', 'vagina', 'chocha', 'verga',
+  // Gore / violence / abuse
+  'gore', 'decapita', 'mutila', 'necrofilia', 'pedofil', 'violador', 'violacion',
+  'suicid', 'homicid', 'genocid', 'masacre', 'terrorist', 'tortura',
+  'dismember', 'behead', 'rapist',
+];
+
+// Whole-word patterns (avoids false positives inside legitimate names like "Analia" or "Sexto")
+const BLOCKED_WORDS = new Set([
+  'adolf', 'osama', 'kkk', 'isis', 'reich',
+  'puta', 'puto', 'putas', 'putos', 'zorra', 'perra', 'cono', 'culo', 'pene',
+  'cuca', 'paja', 'coger', 'joder', 'forro', 'concha', 'carajo', 'tetas',
+  'nalgas', 'sexo', 'sex', 'porn', 'xxx', 'milf', 'bdsm',
+  'shit', 'dick', 'cock', 'pussy', 'slut', 'bastard',
+  'gore', 'rape', 'murder', 'killer', 'asesino', 'matar', 'violar',
+  'cadaver', 'sangre', 'bomba',
+]);
+
+function foldForModeration(str) {
+  return str
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/0/g, 'o')
+    .replace(/[1!|]/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/[4@]/g, 'a')
+    .replace(/[5$]/g, 's')
+    .replace(/7/g, 't')
+    .replace(/(.)\1{2,}/g, '$1$1');
+}
+
+export function validateDisplayName(raw) {
+  if (raw === undefined || raw === null) return { anonymous: true, name: '' };
+  if (typeof raw !== 'string') return { error: 'Nombre inválido.' };
+  const clean = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!clean) return { anonymous: true, name: '' };
+
+  if (clean.length < MIN_NAME_LENGTH || clean.length > MAX_NAME_LENGTH) {
+    return {
+      error: `El nombre debe tener entre ${MIN_NAME_LENGTH} y ${MAX_NAME_LENGTH} caracteres.`,
+    };
+  }
+  if (!VALID_NAME_CHARS.test(clean)) {
+    return { error: 'Usa solo letras, números y espacios en tu nombre.' };
+  }
+
+  const folded = foldForModeration(clean);
+  const compact = folded.replace(/[^a-z]/g, '');
+  const compactSingle = compact.replace(/(.)\1+/g, '$1');
+
+  for (const term of BLOCKED_SUBSTRINGS) {
+    const termSingle = term.replace(/(.)\1+/g, '$1');
+    if (compact.includes(term) || compactSingle.includes(termSingle)) {
+      return { error: 'Ese nombre no está permitido. Elige otro nombre.' };
+    }
+  }
+
+  const words = folded.split(/[^a-z]+/).filter(Boolean);
+  for (const w of words) {
+    const wSingle = w.replace(/(.)\1+/g, '$1');
+    if (BLOCKED_WORDS.has(w) || BLOCKED_WORDS.has(wSingle)) {
+      return { error: 'Ese nombre no está permitido. Elige otro nombre.' };
+    }
+  }
+
+  return { anonymous: false, name: clean };
+}
 
 export const PREDEFINED_EMOJIS = [
   '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',
