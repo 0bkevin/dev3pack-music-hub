@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
 import { fmtMs } from '../../lib/api.js';
 import { Cover } from '../Cover.jsx';
-import { Equalizer } from '../Icons.jsx';
+import { Equalizer, QueueIcon } from '../Icons.jsx';
 
 export function PlayerBar(props) {
   return (
@@ -59,6 +59,16 @@ export function PlayerBar(props) {
         >
           <span>👎</span>
           <span class="tabular">{props.dislikes()}</span>
+        </button>
+        <button
+          class="queue-toggle-btn"
+          id="queue-toggle-btn"
+          type="button"
+          aria-label="Ver cola"
+          onClick={props.onToggleQueue}
+        >
+          <QueueIcon />
+          <span class="queue-toggle-count tabular">{props.queueCount()}</span>
         </button>
         <span class="provider-tag">{(props.provider() || '').toUpperCase()}</span>
       </div>

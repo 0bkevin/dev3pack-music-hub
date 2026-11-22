@@ -1,7 +1,6 @@
 import { createSignal, createMemo, onMount, onCleanup } from 'solid-js';
 import { api, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
-import { Topbar } from '../components/player/Topbar.jsx';
 import { NowPlayingHero } from '../components/player/NowPlayingHero.jsx';
 import { TrackBrowser } from '../components/player/TrackBrowser.jsx';
 import { QueueRail } from '../components/player/QueueRail.jsx';
@@ -57,6 +56,7 @@ export function PlayerApp() {
     const prevId = session()?.clientId;
     saveSession(null);
     setSession(null);
+    setQueueOpen(false);
     room.setMyVote(0);
     if (prevId) {
       api('/api/leave', { method: 'POST', body: JSON.stringify({ clientId: prevId }) }).catch(() => {});
@@ -185,18 +185,6 @@ export function PlayerApp() {
 
         <div class="workspace">
           <main class="main-pane">
-            <Topbar
-              searchRef={(el) => { searchRef = el; }}
-              searchText={searchText}
-              isManualSearch={isManualSearch}
-              onSearchInput={handleSearchInput}
-              onClearSearch={clearSearch}
-              queueCount={() => queue().length}
-              onToggleQueue={() => setQueueOpen((v) => !v)}
-              session={session}
-              onOpenJoin={openJoinOverlay}
-            />
-
             <NowPlayingHero
               current={current}
               myVote={room.myVote}
@@ -208,10 +196,13 @@ export function PlayerApp() {
             />
 
             <TrackBrowser
+              searchRef={(el) => { searchRef = el; }}
               moods={MOODS}
               activeMood={activeMood}
               searchText={searchText}
               isManualSearch={isManualSearch}
+              onSearchInput={handleSearchInput}
+              onClearSearch={clearSearch}
               results={results}
               searching={searching}
               currentTrackId={() => current()?.track?.id}
@@ -229,6 +220,7 @@ export function PlayerApp() {
             listeners={listeners}
             listenerCount={() => room.state()?.listenerCount || 0}
             selfPublicId={() => session()?.publicId}
+            onOpenJoin={openJoinOverlay}
           />
         </div>
 
@@ -240,6 +232,8 @@ export function PlayerApp() {
           myVote={room.myVote}
           likes={likes}
           dislikes={dislikes}
+          queueCount={() => queue().length}
+          onToggleQueue={() => setQueueOpen((v) => !v)}
           provider={() => room.state()?.provider}
           onVote={sendVote}
         />

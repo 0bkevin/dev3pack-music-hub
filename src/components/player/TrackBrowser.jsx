@@ -1,20 +1,49 @@
 import { Show, For } from 'solid-js';
 import { fmtMs } from '../../lib/api.js';
 import { Cover } from '../Cover.jsx';
+import { SearchIcon } from '../Icons.jsx';
 
 export function TrackBrowser(props) {
   return (
     <section class="browser-section">
-      <div class="section-header">
-        <h2 class="section-title">
-          {props.isManualSearch()
-            ? `Resultados para "${props.searchText().trim()}"`
-            : `Explorar · ${props.activeMood()}`}
-        </h2>
+      <div class="browser-top">
+        <div class="search-wrap">
+          <span class="search-icon">
+            <SearchIcon />
+          </span>
+          <input
+            ref={props.searchRef}
+            class="search-input"
+            id="search-input"
+            value={props.searchText()}
+            onInput={(e) => props.onSearchInput(e.currentTarget.value)}
+            placeholder="Buscar canción, artista o álbum…"
+            autocomplete="off"
+          />
+          <Show when={props.isManualSearch()}>
+            <button
+              class="search-clear"
+              id="search-clear"
+              type="button"
+              aria-label="Limpiar búsqueda"
+              onClick={props.onClearSearch}
+            >
+              ×
+            </button>
+          </Show>
+        </div>
+
         <span class="section-sub">Máx. 3 canciones cada 10 min · 30 min para repetir</span>
       </div>
 
-      <Show when={!props.isManualSearch()}>
+      <Show
+        when={!props.isManualSearch()}
+        fallback={
+          <div class="section-header">
+            <h2 class="section-title">Resultados para &ldquo;{props.searchText().trim()}&rdquo;</h2>
+          </div>
+        }
+      >
         <div class="mood-pills" id="mood-pills">
           <For each={props.moods}>
             {(mood) => (

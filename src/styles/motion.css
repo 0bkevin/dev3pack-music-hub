@@ -5,10 +5,9 @@
 @media (hover: hover) and (pointer: fine) {
   .search-input:hover { background: var(--surface-hover); }
   .search-clear:hover { background: rgba(255, 235, 240, 0.2); color: #fff; }
-  .user-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); color: #fff; }
   .queue-toggle-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
   .rail-close-btn:hover { background: var(--surface-hover); color: #fff; }
-  .tv-link:hover { background: var(--wine-mid); border-color: rgba(232, 93, 127, 0.6); }
+  .person-chip.me:hover { background: var(--wine-mid); border-color: var(--accent); }
   .react-pill:hover { background: var(--surface-hover); border-color: var(--border-strong); }
   .mood-pill:hover { background: var(--surface-hover); color: #fff; border-color: var(--border-strong); }
   .track-row:hover { background: var(--surface); }

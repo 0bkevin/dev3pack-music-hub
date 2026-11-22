@@ -115,6 +115,8 @@
   border-color: rgba(232, 93, 127, 0.4);
   color: #fff;
   font-weight: 500;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 160ms var(--ease-out);
 }
 
 /* ---------- Slim Bottom Player Bar ---------- */

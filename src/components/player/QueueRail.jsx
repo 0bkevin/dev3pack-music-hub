@@ -60,11 +60,21 @@ export function QueueRail(props) {
           </div>
           <div class="people-row">
             <For each={props.listeners()}>
-              {(c) => (
-                <span class={`person-chip${props.selfPublicId() === c.id ? ' me' : ''}`}>
-                  {c.name}
-                </span>
-              )}
+              {(c) =>
+                props.selfPublicId() === c.id ? (
+                  <button
+                    class="person-chip me"
+                    id="who-btn"
+                    type="button"
+                    title="Cambiar nombre"
+                    onClick={props.onOpenJoin}
+                  >
+                    {c.name}
+                  </button>
+                ) : (
+                  <span class="person-chip">{c.name}</span>
+                )
+              }
             </For>
           </div>
         </div>
