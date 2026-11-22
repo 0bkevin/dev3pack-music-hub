@@ -1,0 +1,126 @@
+/* dev3pack-hub-music — Caracas 2026 Vinotinto edition (#551727) */
+
+:root {
+  --bg: #12060a;
+  --bg-elevated: #1c0a10;
+  --wine: #551727;
+  --wine-mid: #7a2138;
+  --wine-bright: #d94b6e;
+  --wine-glow: rgba(217, 75, 110, 0.16);
+
+  --surface: rgba(255, 240, 244, 0.04);
+  --surface-hover: rgba(255, 240, 244, 0.08);
+  --border: rgba(255, 232, 238, 0.09);
+  --border-strong: rgba(255, 232, 238, 0.18);
+
+  --fg: #fcf7f8;
+  --fg-secondary: rgba(255, 240, 244, 0.66);
+  --fg-tertiary: rgba(255, 235, 240, 0.4);
+
+  --accent: #e85d7f;
+  --accent-soft: rgba(232, 93, 127, 0.16);
+  --like: #4ade80;
+  --like-soft: rgba(74, 222, 128, 0.14);
+  --danger: #ff6b7a;
+  --danger-soft: rgba(255, 107, 122, 0.15);
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 12px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --player-h: 72px;
+  --queue-w: 300px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input { font-family: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.react-pill:active,
+.pb-vote:active,
+.add-btn:not(:disabled):active,
+.mood-pill:active,
+.user-btn:active,
+.tv-link:active,
+.queue-toggle-btn:active,
+.btn-primary:active,
+.btn-subtle:active,
+.tv-audio-btn:active {
+  transform: scale(0.97);
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 225, 233, 0.14); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 225, 233, 0.26); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+}
+.eq i {
+  display: block;
+  width: 2px;
+  height: 11px;
+  border-radius: 1px;
+  background: var(--accent);
+  transform-origin: bottom;
+  transform: scaleY(0.28);
+  animation: eqBar 0.85s ease-in-out infinite;
+}
+.eq i:nth-child(2) { animation-delay: 0.18s; }
+.eq i:nth-child(3) { animation-delay: 0.36s; }
+@keyframes eqBar { 0%, 100% { transform: scaleY(0.28); } 50% { transform: scaleY(1); } }
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(232, 93, 127, 0.75);
+  flex-shrink: 0;
+}
+
+
+.skip-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.skip-dots i {
+  width: 10px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 232, 238, 0.16);
+  transition: background-color 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.skip-dots i.on { background: var(--danger); transform: scaleY(1.35); }

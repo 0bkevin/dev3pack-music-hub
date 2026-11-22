@@ -1,0 +1,410 @@
+/* =========================================================
+   SCREEN / TV DISPLAY — Dev3pack CCS 2026 Hero + Waves + Compact Dock + Distant Queue
+   ========================================================= */
+
+.tv-screen {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #551727;
+  color: #fff;
+}
+
+/* Official Dev3pack Global Hackathon CCS 2026 SVG — fluid viewport-responsive hero */
+.tv-svg-bg {
+  position: absolute;
+  inset: 0;
+  background: #551727 url('/bg-ccs-2026.svg') 16% 43% / min(84vw, 136vh) auto no-repeat;
+  z-index: 0;
+}
+.tv-screen:not(.playing) .tv-svg-bg {
+  background-position: center 45%;
+  background-size: min(94vw, 150vh) auto;
+}
+
+/* Soft ambient tint at bottom so waves & dock have depth without dimming the Dev3pack logo */
+.tv-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 40% 42%, transparent 55%, rgba(28, 6, 12, 0.36) 100%),
+    linear-gradient(180deg, rgba(22, 5, 10, 0.14) 0%, transparent 22%, transparent 66%, rgba(20, 4, 9, 0.72) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Living animated audio waves canvas flowing under the Dev3pack logo */
+.tv-waves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Idle state */
+.tv-idle {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: center;
+  padding: 0 32px 42px;
+}
+.tv-idle-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  background: rgba(24, 6, 11, 0.56);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 230, 236, 0.14);
+  font-size: 13px;
+  color: rgba(255, 240, 244, 0.86);
+}
+
+/* Clean live layout: leaves center 100% open for the Dev3pack SVG */
+.tv-layout {
+  position: relative;
+  z-index: 6;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 28px 44px 32px;
+}
+
+
+/* Distant floating queue on far right — clear of the Dev3pack logo */
+.tv-queue {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  transform: translateY(-56%);
+  width: 228px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0.52;
+  transition: opacity 220ms var(--ease-out);
+  z-index: 7;
+}
+@media (max-width: 1020px) {
+  .tv-queue { display: none; }
+  .tv-svg-bg { background-position: center 43%; background-size: min(98vw, 145vh) auto; }
+}
+
+.tv-queue-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 230, 236, 0.14);
+}
+.tv-queue-head h2 {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 235, 240, 0.72);
+}
+.tv-queue-head span {
+  font-size: 10.5px;
+  color: rgba(255, 235, 240, 0.48);
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-queue-list {
+  overflow-y: auto;
+  max-height: 46vh;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  mask-image: linear-gradient(180deg, #000 0%, #000 74%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 74%, transparent 100%);
+  padding-bottom: 22px;
+}
+.tv-queue-list:empty { display: none; }
+
+.tv-q-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 6px 5px;
+  border-radius: var(--r-sm);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.tv-q-item:first-child { background: rgba(255, 235, 240, 0.07); }
+.tv-q-item img, .tv-q-item .cover-ph {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-xs);
+  object-fit: cover;
+  opacity: 0.9;
+}
+.tv-q-meta { min-width: 0; }
+.tv-q-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 245, 248, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-q-artist {
+  font-size: 10.5px;
+  color: rgba(255, 235, 240, 0.56);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-q-by {
+  font-size: 9.5px;
+  color: rgba(255, 235, 240, 0.36);
+}
+.tv-empty {
+  color: rgba(255, 235, 240, 0.5);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* Compact, discreet Now Playing dock along the bottom (never covers Dev3pack) */
+.tv-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tv-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tv-progress {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 232, 238, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tv-progress i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 2px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.5s linear;
+}
+.tv-time {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(255, 235, 240, 0.54);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+}
+.tv-time.end { text-align: right; }
+
+.tv-dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.tv-now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  max-width: 520px;
+}
+.tv-cover-sm {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 230, 236, 0.14);
+}
+.tv-now-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tv-now-title {
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-now-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(255, 235, 240, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-now-by { color: rgba(255, 235, 240, 0.44); }
+
+.tv-dock-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.tv-votes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tv-vote-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--r-sm);
+  background: rgba(22, 6, 11, 0.45);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 230, 236, 0.12);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tv-vote-pill.like { color: var(--like); }
+.tv-vote-pill.dislike { color: var(--danger); }
+.tv-skip-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: rgba(255, 235, 240, 0.52);
+  margin-left: 4px;
+}
+
+.tv-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(255, 230, 236, 0.22);
+  background: rgba(255, 255, 255, 0.94);
+  color: #3d0f1c;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 160ms var(--ease-out);
+}
+.tv-audio-btn.on {
+  background: rgba(22, 6, 11, 0.48);
+  color: rgba(255, 240, 244, 0.84);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 720px) {
+  .tv-layout { padding: 20px 20px 24px; }
+  .tv-svg-bg { background-position: center 39%; background-size: 100vw auto; }
+  .tv-dock-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .tv-now { max-width: none; }
+  .tv-cover-sm { width: 46px; height: 46px; }
+  .tv-now-title { font-size: 15px; }
+  .tv-dock-right {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .tv-idle-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+}
+
+/* Anonymous soft-fade reactions on TV (no names, smooth luminous fade) */
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+.fx-burst {
+  position: absolute;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+  will-change: transform, opacity;
+  animation: fxSoftFade 2.5s var(--ease-out) forwards;
+}
+.fx-burst.like { --fx-glow: rgba(74, 222, 128, 0.55); }
+.fx-burst.dislike { --fx-glow: rgba(255, 107, 122, 0.6); }
+@keyframes fxSoftFade {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.88);
+    filter: blur(4px) drop-shadow(0 0 16px var(--fx-glow));
+  }
+  18% {
+    opacity: 0.95;
+    transform: translate3d(calc(var(--drift-x, 0px) * 0.25), -8px, 0) scale(1.04);
+    filter: blur(0px) drop-shadow(0 0 20px var(--fx-glow));
+  }
+  66% {
+    opacity: 0.78;
+    transform: translate3d(calc(var(--drift-x, 0px) * 0.7), -38px, 0) scale(1);
+    filter: blur(0px) drop-shadow(0 0 18px var(--fx-glow));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift-x, 0px), -70px, 0) scale(0.94);
+    filter: blur(6px) drop-shadow(0 0 12px var(--fx-glow));
+  }
+}
+
+.tv-skip-banner {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px) scale(0.97);
+  z-index: 40;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  background: rgba(28, 8, 14, 0.88);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 107, 122, 0.45);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+.tv-skip-banner.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+

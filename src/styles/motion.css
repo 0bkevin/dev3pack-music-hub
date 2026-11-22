@@ -1,0 +1,72 @@
+/* =========================================================
+   POINTER-GATED HOVERS (prevents sticky hover on touch devices)
+   ========================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  .search-input:hover { background: var(--surface-hover); }
+  .search-clear:hover { background: rgba(255, 235, 240, 0.2); color: #fff; }
+  .user-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); color: #fff; }
+  .queue-toggle-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .rail-close-btn:hover { background: var(--surface-hover); color: #fff; }
+  .tv-link:hover { background: var(--wine-mid); border-color: rgba(232, 93, 127, 0.6); }
+  .react-pill:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .mood-pill:hover { background: var(--surface-hover); color: #fff; border-color: var(--border-strong); }
+  .track-row:hover { background: var(--surface); }
+  .add-btn:not(:disabled):hover { background: var(--wine-mid); color: #fff; border-color: var(--accent); }
+  .q-item:hover { background: var(--surface); }
+  .pb-vote:hover { background: var(--surface-hover); color: #fff; }
+  .btn-primary:hover { background: #942944; }
+  .btn-subtle:hover { background: var(--surface-hover); color: #fff; }
+  .tv-queue:hover { opacity: 0.92; }
+  .tv-audio-btn:hover { background: #fff; }
+}
+
+/* =========================================================
+   REDUCED MOTION (gentler opacity/color, drop positional motion)
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .eq i {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+  .react-pill:active,
+  .pb-vote:active,
+  .add-btn:not(:disabled):active,
+  .mood-pill:active,
+  .user-btn:active,
+  .tv-link:active,
+  .queue-toggle-btn:active,
+  .btn-primary:active,
+  .btn-subtle:active,
+  .tv-audio-btn:active,
+  .react-pill.active .emoji,
+  .skip-dots i.on {
+    transform: none;
+  }
+  .join-sheet,
+  .toast,
+  .tv-skip-banner,
+  .tv-q-item,
+  .search-clear {
+    transition: opacity 180ms ease;
+    @starting-style {
+      opacity: 0;
+      transform: none;
+    }
+  }
+  .toast { transform: translateX(-50%); }
+  .toast.show { transform: translateX(-50%); }
+  .tv-skip-banner { transform: translateX(-50%); }
+  .tv-skip-banner.show { transform: translateX(-50%); }
+  .queue-rail { transition: opacity 180ms ease; }
+  .fx-burst {
+    animation: fxReducedFade 1.8s ease forwards;
+  }
+  @keyframes fxReducedFade {
+    0% { opacity: 0; }
+    20% { opacity: 0.9; }
+    75% { opacity: 0.75; }
+    100% { opacity: 0; }
+  }
+}
