@@ -8,7 +8,7 @@ import {
   MAX_QUEUE_SIZE,
   MAX_CLIENTS,
 } from './config.js';
-import { MIN_DURATION_MS, MAX_DURATION_MS, sanitizeTrack } from './sanitize.js';
+import { MIN_DURATION_MS, MAX_DURATION_MS, sanitizeTrack, sanitizeEmoji, randomEmoji } from './sanitize.js';
 import { randomTrack, providerMode, playTrackOnHost, getPublicHostStatus } from './spotify.js';
 
 export { sanitizeTrack };
@@ -19,14 +19,15 @@ const ANON_NAMES = [
 ];
 
 export class Room {
-  constructor(broadcast) {
+  constructor(broadcast, db = null) {
     this.broadcast = broadcast;
-    this.clients = new Map();        // clientToken -> { id, publicId, name, anonymous, joinedAt }
-    this.queue = [];                 // [{ qid, track, addedBy }]
-    this.current = null;             // { track, addedBy, startedAt, endsAt }
+    this.db = db;
+    this.clients = new Map();        // clientToken -> { id, publicId, name, emoji, anonymous, joinedAt }
+    this.queue = [];                 // [{ qid, track, addedBy, addedByEmoji, userId, historyId }]
+    this.current = null;             // { track, addedBy, addedByEmoji, userId, historyId, startedAt, endsAt }
     this.votes = new Map();          // clientToken -> 1 | -1
     this.voteActions = new Map();    // clientToken -> count of vote actions on current track
-    this.lastPlayed = new Map();     // trackId -> timestamp when it last started
+    this.lastPlayed = db ? db.getRecentPlayedCooldowns(REPLAY_COOLDOWN_MS) : new Map();
     this.enqueueLog = new Map();     // clientToken -> [timestamps]
     this.endTimer = null;
     this.advancing = false;
@@ -70,7 +71,7 @@ export class Room {
     }
   }
 
-  join(name) {
+  join(name, rawEmoji = null, ip = '') {
     if (this.clients.size >= MAX_CLIENTS) {
       return { error: 'La sala alcanzó su capacidad máxima.' };
     }
@@ -83,8 +84,10 @@ export class Room {
     const finalName = anon
       ? `${ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]} #${publicId.slice(0, 4)}`
       : clean;
-    const client = { id, publicId, name: finalName, anonymous: anon, joinedAt: Date.now() };
+    const emoji = anon ? randomEmoji() : sanitizeEmoji(rawEmoji);
+    const client = { id, publicId, name: finalName, emoji, anonymous: anon, joinedAt: Date.now() };
     this.clients.set(id, client);
+    this.db?.recordUser({ publicId, name: finalName, emoji, anonymous: anon, ip });
     this.emitState();
     return client;
   }
@@ -131,7 +134,24 @@ export class Room {
     log.push(now);
     this.enqueueLog.set(clientId, log);
 
-    this.queue.push({ qid: crypto.randomUUID(), track, addedBy: client.name });
+    const historyId = this.db
+      ? this.db.recordTrackRequest({
+          userId: client.publicId,
+          addedBy: client.name,
+          addedByEmoji: client.emoji,
+          track,
+          status: 'queued',
+        })
+      : null;
+
+    this.queue.push({
+      qid: crypto.randomUUID(),
+      track,
+      addedBy: client.name,
+      addedByEmoji: client.emoji,
+      userId: client.publicId,
+      historyId,
+    });
     if (!this.current && !this.advancing) {
       this.advance().catch((err) => console.error('advance error:', err));
     } else {
@@ -202,7 +222,18 @@ export class Room {
     if (this.advancing) return;
     this.advancing = true;
     clearTimeout(this.endTimer);
-    const skippedTrack = this.current?.track;
+    const prevCurrent = this.current;
+    const prevStats = this.voteStats();
+    const skippedTrack = prevCurrent?.track;
+
+    if (prevCurrent?.historyId && this.db) {
+      this.db.finalizeTrack(prevCurrent.historyId, {
+        status: reason === 'skipped' ? 'skipped' : 'played',
+        likes: prevStats.likes,
+        dislikes: prevStats.dislikes,
+      });
+    }
+
     this.votes.clear();
     this.voteActions.clear();
     this.pruneExpired();
@@ -211,12 +242,15 @@ export class Room {
       let next = this.queue.shift();
       let track = next?.track || null;
       let addedBy = next?.addedBy || null;
+      let addedByEmoji = next?.addedByEmoji || '🎵';
+      let historyId = next?.historyId || null;
 
       if (!track) {
         try {
           const picked = await randomTrack(this.cooldownIds());
           track = picked ? sanitizeTrack(picked) : null;
-          addedBy = '🎲 Shuffle';
+          addedBy = 'Shuffle';
+          addedByEmoji = '🎲';
         } catch (err) {
           console.error('randomTrack error:', err.message);
           track = null;
@@ -225,6 +259,8 @@ export class Room {
           const queued = this.queue.shift();
           track = queued.track;
           addedBy = queued.addedBy;
+          addedByEmoji = queued.addedByEmoji || '🎵';
+          historyId = queued.historyId || null;
         }
       }
 
@@ -234,10 +270,24 @@ export class Room {
         return;
       }
 
+      if (historyId) {
+        this.db?.markTrackPlaying(historyId);
+      } else if (this.db) {
+        historyId = this.db.recordTrackRequest({
+          userId: null,
+          addedBy,
+          addedByEmoji,
+          track,
+          status: 'playing',
+        });
+      }
+
       const durationMs = Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, track.durationMs || 180_000));
       this.current = {
         track,
         addedBy,
+        addedByEmoji,
+        historyId,
         startedAt: Date.now(),
         endsAt: Date.now() + durationMs,
         reason,
@@ -270,7 +320,7 @@ export class Room {
       rawLikes: stats.rawLikes,
       rawDislikes: stats.rawDislikes,
       queue: this.queue,
-      listeners: [...this.clients.values()].map((c) => ({ id: c.publicId, name: c.name })),
+      listeners: [...this.clients.values()].map((c) => ({ id: c.publicId, name: c.name, emoji: c.emoji })),
       listenerCount: this.clients.size,
     };
   }

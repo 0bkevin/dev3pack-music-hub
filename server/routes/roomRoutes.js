@@ -10,12 +10,14 @@ export function createRoomRouter(room, wsHub) {
   const leaveLimiter = makeIpLimiter(20, 60_000, 'leave');
 
   router.post('/join', joinLimiter, (req, res) => {
-    const client = room.join(req.body?.name);
+    const ip = req.ip || req.socket?.remoteAddress || '';
+    const client = room.join(req.body?.name, req.body?.emoji, ip);
     if (client.error) return res.status(503).json(client);
     res.json({
       clientId: client.id,
       publicId: client.publicId,
       name: client.name,
+      emoji: client.emoji,
       anonymous: client.anonymous,
     });
   });
