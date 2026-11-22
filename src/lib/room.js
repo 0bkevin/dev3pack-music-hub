@@ -21,11 +21,12 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
     const connect = () => {
       if (disposed) return;
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const query = id ? `?client=${encodeURIComponent(id)}` : '';
-      ws = new WebSocket(`${proto}://${location.host}/ws${query}`);
+      ws = new WebSocket(`${proto}://${location.host}/ws`);
 
       ws.onopen = () => {
         attempt = 0;
+        // Authenticate via first-message frame so private tokens never appear in URLs/logs
+        if (id) ws.send(JSON.stringify({ type: 'auth', clientId: id }));
       };
 
       ws.onmessage = (e) => {

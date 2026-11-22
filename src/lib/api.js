@@ -1,16 +1,30 @@
 const SESSION_KEY = 'd3m_session';
+const SESSION_TTL_MS = 12 * 60 * 60_000; // 12h retention cap (ISO 27701)
 
 export function loadSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.clientId || (parsed.exp && Date.now() > parsed.exp)) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
 export function saveSession(session) {
-  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  else localStorage.removeItem(SESSION_KEY);
+  if (session) {
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ ...session, exp: Date.now() + SESSION_TTL_MS })
+    );
+  } else {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
 }
 
 export async function api(path, opts = {}) {

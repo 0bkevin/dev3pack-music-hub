@@ -5,6 +5,13 @@ import { Cover } from '../components/Cover.jsx';
 import { Equalizer } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
 
+const SPOTIFY_ERROR_MESSAGES = {
+  auth_denied: 'Autenticación con Spotify cancelada.',
+  invalid_callback: 'Respuesta de Spotify inválida.',
+  state_invalid: 'Sesión OAuth expirada. Intenta conectar de nuevo.',
+  exchange_failed: 'No se pudo completar la conexión con Spotify.',
+};
+
 export function ScreenApp() {
   const [reactions, setReactions] = createSignal([]);
   const [banner, setBanner] = createSignal({ text: '', visible: false });
@@ -137,8 +144,9 @@ export function ScreenApp() {
     window.addEventListener('spotify-sdk-ready', onSdk);
 
     const params = new URLSearchParams(location.search);
-    if (params.get('spotify_error')) {
-      showBanner(`Spotify: ${params.get('spotify_error')}`, 5500);
+    const errCode = params.get('spotify_error');
+    if (errCode) {
+      showBanner(SPOTIFY_ERROR_MESSAGES[errCode] || 'No se pudo conectar Spotify.', 5500);
       history.replaceState({}, '', '/screen');
     }
 
@@ -176,7 +184,7 @@ export function ScreenApp() {
   const spotifyBtnLabel = () => {
     const h = host();
     if (!h?.connected) return 'Conectar Spotify Premium';
-    if (spUnlocked() && spDeviceId()) return `🔊 Spotify · ${h.user || 'Conectado'}`;
+    if (spUnlocked() && spDeviceId()) return '🔊 Spotify conectado';
     if (spDeviceId()) return '🔊 Activar sonido';
     return 'Conectando reproductor…';
   };
