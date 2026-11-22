@@ -10,7 +10,6 @@ const MARKET = process.env.SPOTIFY_MARKET || 'US';
 
 const SCOPES = [
   'streaming',
-  'user-read-email',
   'user-read-private',
   'user-read-playback-state',
   'user-modify-playback-state',
@@ -214,12 +213,18 @@ export function disconnectHost() {
   host.sessionToken = null;
 }
 
-export function getHostStatus() {
+export function getPublicHostStatus() {
   return {
     configured: spotifyEnabled,
     connected: Boolean(host.accessToken),
-    user: host.accessToken ? host.user : null,
     deviceReady: Boolean(host.deviceId),
+  };
+}
+
+export function getHostStatus() {
+  return {
+    ...getPublicHostStatus(),
+    user: host.accessToken ? host.user : null,
   };
 }
 

@@ -1,4 +1,4 @@
-import { randomTrack, providerMode, playTrackOnHost, getHostStatus } from './spotify.js';
+import { randomTrack, providerMode, playTrackOnHost, getPublicHostStatus } from './spotify.js';
 import crypto from 'node:crypto';
 
 function envInt(name, fallback, min = 1, max = 10_000) {
@@ -347,7 +347,7 @@ export class Room {
       type: 'state',
       now: Date.now(),
       provider: providerMode(),
-      spotifyHost: getHostStatus(),
+      spotifyHost: getPublicHostStatus(),
       dislikesToSkip: DISLIKES_TO_SKIP,
       cooldownMinutes: REPLAY_COOLDOWN_MS / 60000,
       maxVotesPerTrack: MAX_VOTES_PER_TRACK,
