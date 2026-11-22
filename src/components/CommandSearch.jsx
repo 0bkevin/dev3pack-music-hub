@@ -2,7 +2,7 @@ import { createSignal, createEffect, createMemo, onMount, onCleanup, Show, For }
 import { api } from '../lib/api.js';
 import { isCommandSearchEvent, shortcutHint } from '../lib/shortcuts.js';
 import { Cover } from './Cover.jsx';
-import { SearchIcon } from './Icons.jsx';
+import { CheckIcon, PlusIcon, SearchIcon } from './Icons.jsx';
 
 const DEFAULT_QUERY = 'Electronic';
 
@@ -209,13 +209,32 @@ export function CommandSearch(props) {
                         <span class="cmd-artist">{track.artists}</span>
                       </span>
                       <span class="cmd-action">
-                        {isPlaying()
-                          ? 'Sonando'
-                          : isQueued()
-                            ? '✓ En cola'
-                            : isSelected()
-                              ? '↵ Proponer'
-                              : '+ Cola'}
+                        <Show
+                          when={!isPlaying()}
+                          fallback={<span>Sonando</span>}
+                        >
+                          <Show
+                            when={!isQueued()}
+                            fallback={
+                              <>
+                                <CheckIcon size={11} />
+                                <span>En cola</span>
+                              </>
+                            }
+                          >
+                            <Show
+                              when={isSelected()}
+                              fallback={
+                                <>
+                                  <PlusIcon size={11} />
+                                  <span>Cola</span>
+                                </>
+                              }
+                            >
+                              <span>↵ Proponer</span>
+                            </Show>
+                          </Show>
+                        </Show>
                       </span>
                     </button>
                   );

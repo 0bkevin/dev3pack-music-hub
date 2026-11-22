@@ -120,3 +120,40 @@ export function CrownIcon() {
     </svg>
   );
 }
+
+export function PlusIcon(props) {
+  return (
+    <svg
+      width={props.size || 12}
+      height={props.size || 12}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width={props.strokeWidth || 2.4}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props) {
+  return (
+    <svg
+      width={props.size || 12}
+      height={props.size || 12}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width={props.strokeWidth || 2.5}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}

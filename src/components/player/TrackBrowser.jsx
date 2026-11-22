@@ -2,7 +2,7 @@ import { Show, For } from 'solid-js';
 import { fmtMs } from '../../lib/api.js';
 import { shortcutHint } from '../../lib/shortcuts.js';
 import { Cover } from '../Cover.jsx';
-import { SearchIcon } from '../Icons.jsx';
+import { CheckIcon, PlusIcon, SearchIcon } from '../Icons.jsx';
 
 export function TrackBrowser(props) {
   return (
@@ -88,8 +88,6 @@ export function TrackBrowser(props) {
               const isQueued = () => props.queuedIds().has(track.id);
               const isBusy = () => props.pendingIds().has(track.id);
               const disabled = () => isPlaying() || isQueued() || isBusy();
-              const label = () =>
-                isPlaying() ? 'Sonando' : isQueued() ? '✓ En cola' : '+ Cola';
 
               return (
                 <div class="track-row">
@@ -107,7 +105,23 @@ export function TrackBrowser(props) {
                     disabled={disabled()}
                     onClick={() => props.onEnqueue(track)}
                   >
-                    {label()}
+                    <Show
+                      when={!isPlaying()}
+                      fallback={<span>Sonando</span>}
+                    >
+                      <Show
+                        when={!isQueued()}
+                        fallback={
+                          <>
+                            <CheckIcon size={12} />
+                            <span>En cola</span>
+                          </>
+                        }
+                      >
+                        <PlusIcon size={12} />
+                        <span>Cola</span>
+                      </Show>
+                    </Show>
                   </button>
                 </div>
               );

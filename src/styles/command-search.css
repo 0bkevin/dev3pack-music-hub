@@ -162,13 +162,19 @@
 }
 
 .cmd-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   font-size: 11.5px;
   font-weight: 500;
+  line-height: 1;
   color: var(--fg-tertiary);
-  padding: 3px 8px;
+  padding: 5px 8px;
   border-radius: var(--r-xs);
   flex-shrink: 0;
 }
+.cmd-action svg { flex-shrink: 0; }
 .cmd-row.selected:not(.muted) .cmd-action {
   background: rgba(85, 23, 39, 0.72);
   color: #fff;
