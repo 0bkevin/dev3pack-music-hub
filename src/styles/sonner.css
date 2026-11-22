@@ -1,125 +1,178 @@
 /* =========================================================
-   SONNER TOASTER — Stacked, semantic vinotinto-harmonized toasts
+   SONNER TOASTER — Compact shadcn/ui stacked deck with hover fan-out
    ========================================================= */
 
 .sonner-toaster {
+  --width: min(312px, calc(100vw - 24px));
+  --toast-h: 58px;
+  --gap: 10px;
+  --peek: 11px;
+
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 18px;
+  bottom: 18px;
   z-index: 95;
+  width: var(--width);
+  height: var(--toast-h);
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(368px, calc(100vw - 24px));
+  padding: 0;
+  margin: 0;
   pointer-events: none;
 }
 .sonner-toaster.above-player {
-  bottom: calc(var(--player-h) + 16px);
+  bottom: calc(var(--player-h) + 14px);
 }
 
 .sonner-toast {
+  --y: translateY(calc(var(--index) * var(--peek) * -1)) scale(calc(1 - var(--index) * 0.05));
+
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--width);
+  min-height: var(--toast-h);
+  z-index: var(--z-index);
   pointer-events: auto;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 22px;
-  align-items: start;
-  gap: 10px;
-  padding: 12px 12px 12px 13px;
-  border-radius: var(--r-lg);
-  background: rgba(24, 9, 14, 0.96);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  border-radius: var(--r-md);
+  background: rgba(20, 9, 13, 0.96);
   border: 1px solid var(--border-strong);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.48);
   color: var(--fg);
   opacity: 1;
-  transform: translateY(0) scale(1);
-  transition: opacity 280ms ease, transform 360ms var(--ease-out);
+  transform-origin: bottom center;
+  transform: var(--y);
+  transition: transform 400ms ease, opacity 350ms ease, box-shadow 200ms ease;
   @starting-style {
     opacity: 0;
-    transform: translateY(14px) scale(0.96);
+    transform: translateY(100%);
   }
 }
-.sonner-toast.leaving {
-  opacity: 0;
-  transform: translateY(10px) scale(0.97);
-  transition: opacity 220ms ease, transform 220ms ease;
+
+/* Hover bridge between fanned-out toasts so pointer never drops out */
+.sonner-toast[data-expanded='true']::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: calc(var(--gap) + 2px);
 }
 
-/* Subtle semantic tint per variant, harmonized with dark vinotinto */
-.sonner-toast.success {
-  background: linear-gradient(135deg, rgba(16, 36, 26, 0.96), rgba(22, 12, 16, 0.96));
-  border-color: rgba(74, 222, 128, 0.34);
+/* Collapsed deck: keep back toasts subtle and clean */
+.sonner-toast[data-expanded='false'][data-front='false'] > .sonner-body,
+.sonner-toast[data-expanded='false'][data-front='false'] > .sonner-icon {
+  opacity: 0;
+  transition: opacity 250ms ease;
 }
-.sonner-toast.error {
-  background: linear-gradient(135deg, rgba(48, 12, 20, 0.96), rgba(24, 9, 14, 0.96));
-  border-color: rgba(255, 107, 122, 0.44);
+
+/* Expanded fan-out on hover (authentic shadcn/Sonner) */
+.sonner-toast[data-expanded='true'] {
+  --y: translateY(calc(var(--index) * (var(--toast-h) + var(--gap)) * -1)) scale(1);
+}
+.sonner-toast[data-expanded='true'] > .sonner-body,
+.sonner-toast[data-expanded='true'] > .sonner-icon {
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+/* Exit along the same bottom edge */
+.sonner-toast[data-removed='true'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%) scale(0.96);
+  transition: transform 320ms ease, opacity 240ms ease;
+}
+
+/* Semantic shadcn richColors (dark mode) */
+.sonner-toast.success {
+  background: rgba(11, 30, 20, 0.96);
+  border-color: rgba(52, 211, 153, 0.3);
 }
 .sonner-toast.info {
-  background: linear-gradient(135deg, rgba(58, 18, 31, 0.96), rgba(24, 9, 14, 0.96));
-  border-color: rgba(232, 93, 127, 0.4);
+  background: rgba(12, 24, 38, 0.96);
+  border-color: rgba(96, 165, 250, 0.32);
+}
+.sonner-toast.error {
+  background: rgba(42, 11, 17, 0.96);
+  border-color: rgba(248, 113, 113, 0.38);
 }
 
 .sonner-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  margin-top: 1px;
 }
-.sonner-icon.success {
-  background: rgba(74, 222, 128, 0.14);
-  color: var(--like);
-}
-.sonner-icon.error {
-  background: rgba(255, 107, 122, 0.16);
-  color: var(--danger);
-}
-.sonner-icon.info {
-  background: rgba(232, 93, 127, 0.16);
-  color: #ff9ab2;
-}
+.sonner-icon[data-type='success'] { color: #4ade80; }
+.sonner-icon[data-type='info'] { color: #60a5fa; }
+.sonner-icon[data-type='error'] { color: #f87171; }
 
 .sonner-body {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .sonner-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 500;
   color: #fff;
   line-height: 1.35;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sonner-desc {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--fg-secondary);
-  line-height: 1.4;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Authentic shadcn/Sonner corner close pill (appears cleanly on hover) */
 .sonner-close {
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: var(--r-xs);
-  background: transparent;
-  color: var(--fg-tertiary);
-  font-size: 15px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-35%, -35%);
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: #1a090f;
+  color: var(--fg-secondary);
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background-color 140ms ease, color 140ms ease;
+  opacity: 0;
+  transition: opacity 140ms ease, background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .sonner-toast:hover .sonner-close,
+  .sonner-close:focus-visible {
+    opacity: 1;
+  }
   .sonner-close:hover {
-    background: var(--surface-hover);
+    background: var(--wine-mid);
     color: #fff;
+  }
+}
+
+@media (hover: none) {
+  .sonner-toast[data-front='true'] .sonner-close {
+    opacity: 0.85;
   }
 }
 
@@ -127,10 +180,10 @@
   .sonner-toaster {
     right: 50%;
     transform: translateX(50%);
-    bottom: 14px;
+    bottom: 12px;
   }
   .sonner-toaster.above-player {
-    bottom: calc(var(--player-h) + 12px);
+    bottom: calc(var(--player-h) + 10px);
   }
 }
 
@@ -139,10 +192,10 @@
     transition: opacity 180ms ease;
     @starting-style {
       opacity: 0;
-      transform: none;
+      transform: var(--y);
     }
   }
-  .sonner-toast.leaving {
-    transform: none;
+  .sonner-toast[data-removed='true'] {
+    transform: var(--y);
   }
 }

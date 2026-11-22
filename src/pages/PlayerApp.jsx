@@ -181,7 +181,7 @@ export function PlayerApp() {
         method: 'POST',
         body: JSON.stringify({ clientId: s.clientId, qid: item.qid }),
       });
-      toast.info(
+      toast.success(
         `«${item.track.name}» quitada de la cola`,
         'Recuperaste tu cupo para pedir otra canción.'
       );

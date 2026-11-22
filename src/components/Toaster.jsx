@@ -1,26 +1,34 @@
-import { For, Show } from 'solid-js';
-import { toasts, toast, pauseToast, resumeToast } from '../lib/sonner.js';
+import { createSignal, For, Show } from 'solid-js';
+import { toasts, toast, pauseAllToasts, resumeAllToasts } from '../lib/sonner.js';
 
-function ToastIcon(props) {
+function SonnerIcon(props) {
   return (
-    <span class={`sonner-icon ${props.type}`} aria-hidden="true">
+    <span class="sonner-icon" data-type={props.type} aria-hidden="true">
       <Show when={props.type === 'success'}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 6 9 17l-5-5" />
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+            clip-rule="evenodd"
+          />
         </svg>
       </Show>
       <Show when={props.type === 'error'}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" x2="12" y1="8" y2="12" />
-          <line x1="12" x2="12.01" y1="16" y2="16" />
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
+            clip-rule="evenodd"
+          />
         </svg>
       </Show>
       <Show when={props.type === 'info'}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
+            clip-rule="evenodd"
+          />
         </svg>
       </Show>
     </span>
@@ -28,28 +36,37 @@ function ToastIcon(props) {
 }
 
 export function Toaster(props) {
+  const [expanded, setExpanded] = createSignal(false);
+
   return (
     <ol
       class={`sonner-toaster${props.offsetPlayer ? ' above-player' : ''}`}
       id="sonner-toaster"
+      data-expanded={expanded()}
       aria-label="Notificaciones"
+      onMouseEnter={() => {
+        setExpanded(true);
+        pauseAllToasts();
+      }}
+      onMouseLeave={() => {
+        setExpanded(false);
+        resumeAllToasts();
+      }}
     >
       <For each={toasts()}>
-        {(item) => (
+        {(item, idx) => (
           <li
-            class={`sonner-toast ${item.type}${item.leaving ? ' leaving' : ''}`}
+            class={`sonner-toast ${item.type}`}
+            data-front={idx() === 0}
+            data-expanded={expanded()}
+            data-removed={item.removed}
+            style={{
+              '--index': idx(),
+              '--z-index': 10 - idx(),
+            }}
             role={item.type === 'error' ? 'alert' : 'status'}
             aria-live={item.type === 'error' ? 'assertive' : 'polite'}
-            onMouseEnter={() => pauseToast(item.id)}
-            onMouseLeave={() => resumeToast(item.id)}
           >
-            <ToastIcon type={item.type} />
-            <div class="sonner-body">
-              <div class="sonner-title">{item.title}</div>
-              <Show when={item.description}>
-                <div class="sonner-desc">{item.description}</div>
-              </Show>
-            </div>
             <button
               type="button"
               class="sonner-close"
@@ -58,6 +75,13 @@ export function Toaster(props) {
             >
               ×
             </button>
+            <SonnerIcon type={item.type} />
+            <div class="sonner-body">
+              <div class="sonner-title">{item.title}</div>
+              <Show when={item.description}>
+                <div class="sonner-desc">{item.description}</div>
+              </Show>
+            </div>
           </li>
         )}
       </For>
