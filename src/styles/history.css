@@ -104,23 +104,61 @@
   color: var(--fg-tertiary);
 }
 
-/* ---------- Top 3 Olympic Podium ---------- */
+/* ---------- Top 3 Sculpted Stage Podium ---------- */
+
+.podium-stage {
+  position: relative;
+  padding: 20px 0 0;
+}
+.podium-stage::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 360px;
+  height: 220px;
+  background: radial-gradient(
+    ellipse at 50% 38%,
+    rgba(245, 198, 118, 0.14) 0%,
+    rgba(232, 93, 127, 0.14) 36%,
+    transparent 72%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.podium-stage::after {
+  content: "";
+  display: block;
+  width: min(640px, 100%);
+  height: 1px;
+  margin: 0 auto;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 224, 234, 0.22) 25%,
+    rgba(245, 200, 118, 0.35) 50%,
+    rgba(255, 224, 234, 0.22) 75%,
+    transparent 100%
+  );
+}
 
 .podium {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 20px;
-  padding: 10px 0 4px;
+  gap: 12px;
 }
 
 .podium-slot {
-  flex: 0 1 220px;
+  flex: 0 1 182px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 12px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -135,6 +173,7 @@
     transform: translateY(10px);
   }
 }
+.podium-slot.rank-1 { flex-basis: 204px; }
 .podium-slot.rank-2 { transition-delay: 45ms; }
 .podium-slot.rank-3 { transition-delay: 80ms; }
 .podium-slot:active {
@@ -142,22 +181,45 @@
   transition: transform 120ms var(--ease-out);
 }
 
+.podium-head {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.podium-crown {
+  color: #f5ca7b;
+  display: inline-flex;
+  margin-bottom: -2px;
+  filter: drop-shadow(0 0 10px rgba(245, 202, 123, 0.55));
+}
+
 .podium-avatar-ring {
   padding: 3px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 232, 238, 0.14);
+  border: 2px solid rgba(255, 232, 238, 0.16);
   transition:
     transform 200ms var(--ease-out),
     border-color 180ms var(--ease-out),
     box-shadow 180ms var(--ease-out);
 }
 .podium-slot.rank-1 .podium-avatar-ring {
-  border-color: rgba(232, 93, 127, 0.65);
-  box-shadow: 0 0 28px rgba(232, 93, 127, 0.25);
+  border-color: rgba(245, 202, 123, 0.72);
+  box-shadow:
+    0 0 0 4px rgba(245, 202, 123, 0.1),
+    0 12px 32px rgba(232, 93, 127, 0.28);
+}
+.podium-slot.rank-2 .podium-avatar-ring {
+  border-color: rgba(226, 232, 240, 0.42);
+}
+.podium-slot.rank-3 .podium-avatar-ring {
+  border-color: rgba(217, 142, 102, 0.45);
 }
 .podium-slot.active .podium-avatar-ring {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(232, 93, 127, 0.2);
+  box-shadow: 0 0 0 4px rgba(232, 93, 127, 0.24);
 }
 
 .podium-avatar {
@@ -166,14 +228,14 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
 }
 .podium-slot.rank-1 .podium-avatar {
-  width: 74px;
-  height: 74px;
+  width: 78px;
+  height: 78px;
 }
 .podium-emoji { font-size: 28px; line-height: 1; }
-.podium-slot.rank-1 .podium-emoji { font-size: 34px; }
+.podium-slot.rank-1 .podium-emoji { font-size: 36px; }
 
 .podium-name {
   max-width: 100%;
@@ -185,53 +247,93 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.podium-slot.rank-1 .podium-name { font-size: 14.5px; }
+.podium-slot.rank-1 .podium-name { font-size: 15px; }
 
 .podium-meta {
   font-size: 11.5px;
   color: var(--fg-secondary);
-  margin-top: -3px;
+  margin-top: -2px;
 }
 
 .podium-step {
+  position: relative;
   width: 100%;
-  margin-top: 4px;
-  border-radius: var(--r-md) var(--r-md) 0 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
   border: 1px solid rgba(255, 232, 238, 0.1);
   border-bottom: none;
-  background: linear-gradient(180deg, rgba(85, 23, 39, 0.42), rgba(20, 7, 11, 0.08));
+  background: linear-gradient(180deg, rgba(64, 18, 32, 0.55) 0%, rgba(18, 6, 10, 0.18) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 12px 8px 10px;
-  gap: 5px;
+  justify-content: space-between;
+  padding: 12px 10px 11px;
+  overflow: hidden;
 }
+.podium-step::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14%;
+  right: 14%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 240, 244, 0.45), transparent);
+}
+
 .podium-slot.rank-1 .podium-step {
-  min-height: 98px;
-  background: linear-gradient(180deg, rgba(122, 33, 56, 0.62), rgba(24, 8, 13, 0.12));
-  border-color: rgba(232, 93, 127, 0.35);
+  height: 124px;
+  background: linear-gradient(180deg, rgba(132, 34, 59, 0.72) 0%, rgba(44, 12, 22, 0.24) 100%);
+  border-color: rgba(245, 202, 123, 0.34);
+  box-shadow: inset 0 1px 0 rgba(245, 202, 123, 0.25);
+}
+.podium-slot.rank-1 .podium-step::before {
+  background: linear-gradient(90deg, transparent, rgba(245, 202, 123, 0.85), transparent);
 }
 .podium-slot.rank-2 .podium-step {
-  min-height: 72px;
+  height: 92px;
+  border-color: rgba(226, 232, 240, 0.22);
 }
 .podium-slot.rank-3 .podium-step {
-  min-height: 54px;
+  height: 70px;
+  border-color: rgba(217, 142, 102, 0.24);
 }
 
 .podium-num {
-  font-size: 20px;
-  font-weight: 700;
+  position: absolute;
+  bottom: -14px;
+  right: 10px;
+  font-size: 68px;
+  font-weight: 800;
   line-height: 1;
-  color: rgba(255, 240, 244, 0.85);
+  letter-spacing: -0.06em;
+  color: rgba(255, 240, 244, 0.06);
+  pointer-events: none;
+  user-select: none;
 }
 .podium-slot.rank-1 .podium-num {
-  font-size: 24px;
-  color: #fff;
+  font-size: 86px;
+  color: rgba(245, 202, 123, 0.11);
 }
-.podium-votes {
+
+.podium-rank-label {
+  position: relative;
+  z-index: 1;
   font-size: 11px;
-  color: var(--fg-tertiary);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--fg-secondary);
+}
+.podium-slot.rank-1 .podium-rank-label { color: #f5ca7b; }
+.podium-slot.rank-2 .podium-rank-label { color: #dce3ec; }
+.podium-slot.rank-3 .podium-rank-label { color: #e2a27e; }
+
+.podium-votes {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--fg-secondary);
   white-space: nowrap;
 }
 

@@ -106,3 +106,17 @@ export function ChevronDownIcon(props) {
     </svg>
   );
 }
+
+export function CrownIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M4 18h16l1.5-9.5-5.2 3.8L12 5l-4.3 7.3L2.5 8.5 4 18Zm0 2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1H4v1Z" />
+    </svg>
+  );
+}

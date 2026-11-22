@@ -1,7 +1,7 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { Cover } from '../components/Cover.jsx';
-import { ChevronDownIcon, SearchIcon } from '../components/Icons.jsx';
+import { ChevronDownIcon, CrownIcon, SearchIcon } from '../components/Icons.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const STATUS_LABELS = {
@@ -191,37 +191,49 @@ export function HistoryApp() {
               </div>
             }
           >
-            <div class="podium" id="podium">
-              <For each={podiumSlots()}>
-                {(slot) => (
-                  <button
-                    type="button"
-                    class={`podium-slot rank-${slot.rank}${
-                      activeTab() === 'people' && openUserId() === slot.person.id ? ' active' : ''
-                    }`}
-                    onClick={() => jumpToParticipant(slot.person.id)}
-                  >
-                    <span class="podium-avatar-ring">
-                      <span
-                        class="podium-avatar"
-                        style={{ background: trackGradient({ id: slot.person.id }) }}
-                      >
-                        <span class="podium-emoji">{slot.person.emoji}</span>
+            <div class="podium-stage">
+              <div class="podium" id="podium">
+                <For each={podiumSlots()}>
+                  {(slot) => (
+                    <button
+                      type="button"
+                      class={`podium-slot rank-${slot.rank}${
+                        activeTab() === 'people' && openUserId() === slot.person.id ? ' active' : ''
+                      }`}
+                      onClick={() => jumpToParticipant(slot.person.id)}
+                    >
+                      <span class="podium-head">
+                        <Show when={slot.rank === 1}>
+                          <span class="podium-crown" aria-hidden="true">
+                            <CrownIcon />
+                          </span>
+                        </Show>
+                        <span class="podium-avatar-ring">
+                          <span
+                            class="podium-avatar"
+                            style={{ background: trackGradient({ id: slot.person.id }) }}
+                          >
+                            <span class="podium-emoji">{slot.person.emoji}</span>
+                          </span>
+                        </span>
+                        <span class="podium-name">{slot.person.name}</span>
+                        <span class="podium-meta tabular">
+                          {slot.person.songCount} {slot.person.songCount === 1 ? 'canción' : 'canciones'}
+                        </span>
                       </span>
-                    </span>
-                    <span class="podium-name">{slot.person.name}</span>
-                    <span class="podium-meta tabular">
-                      {slot.person.songCount} {slot.person.songCount === 1 ? 'canción' : 'canciones'}
-                    </span>
-                    <span class="podium-step">
-                      <span class="podium-num tabular">{slot.rank}</span>
-                      <span class="podium-votes tabular">
-                        👍 {slot.person.totalLikes} · 👎 {slot.person.totalDislikes}
+
+                      <span class="podium-step">
+                        <span class="podium-num tabular" aria-hidden="true">{slot.rank}</span>
+                        <span class="podium-rank-label tabular">#{slot.rank}</span>
+                        <span class="podium-votes tabular">
+                          <span>👍 {slot.person.totalLikes}</span>
+                          <span>👎 {slot.person.totalDislikes}</span>
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                )}
-              </For>
+                    </button>
+                  )}
+                </For>
+              </div>
             </div>
           </Show>
         </section>
