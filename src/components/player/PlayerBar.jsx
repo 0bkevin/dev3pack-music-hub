@@ -72,11 +72,10 @@ export function PlayerBar(props) {
           <QueueIcon />
           <span class="queue-toggle-count tabular">{props.queueCount()}</span>
         </button>
-        <a class="pb-history-link" href="/history" title="Ver historial y Top 5">
+        <a class="pb-history-link" href="/history" title="Ver historial y Top 3">
           <HistoryIcon />
           <span class="pb-history-label">Historial</span>
         </a>
-        <span class="provider-tag">{(props.provider() || '').toUpperCase()}</span>
       </div>
     </footer>
   );

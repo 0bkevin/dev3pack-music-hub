@@ -253,11 +253,3 @@
 }
 .pb-history-link:active { transform: scale(0.97); }
 
-.provider-tag {
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--fg-tertiary);
-  padding-left: 8px;
-}
-

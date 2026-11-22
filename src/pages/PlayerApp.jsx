@@ -256,7 +256,6 @@ export function PlayerApp() {
           dislikes={dislikes}
           queueCount={() => queue().length}
           onToggleQueue={() => setQueueOpen((v) => !v)}
-          provider={() => room.state()?.provider}
           onVote={sendVote}
         />
       </div>
