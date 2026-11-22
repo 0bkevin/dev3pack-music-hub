@@ -223,7 +223,6 @@ export function HistoryApp() {
                       </span>
 
                       <span class="podium-step">
-                        <span class="podium-num tabular" aria-hidden="true">{slot.rank}</span>
                         <span class="podium-rank-label tabular">#{slot.rank}</span>
                         <span class="podium-votes tabular">
                           <span>👍 {slot.person.totalLikes}</span>

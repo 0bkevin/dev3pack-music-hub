@@ -265,8 +265,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 10px 11px;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 10px 12px;
   overflow: hidden;
 }
 .podium-step::before {
@@ -280,7 +281,7 @@
 }
 
 .podium-slot.rank-1 .podium-step {
-  height: 124px;
+  height: 118px;
   background: linear-gradient(180deg, rgba(132, 34, 59, 0.72) 0%, rgba(44, 12, 22, 0.24) 100%);
   border-color: rgba(245, 202, 123, 0.34);
   box-shadow: inset 0 1px 0 rgba(245, 202, 123, 0.25);
@@ -289,40 +290,22 @@
   background: linear-gradient(90deg, transparent, rgba(245, 202, 123, 0.85), transparent);
 }
 .podium-slot.rank-2 .podium-step {
-  height: 92px;
+  height: 88px;
   border-color: rgba(226, 232, 240, 0.22);
 }
 .podium-slot.rank-3 .podium-step {
-  height: 70px;
+  height: 68px;
   border-color: rgba(217, 142, 102, 0.24);
 }
 
-.podium-num {
-  position: absolute;
-  bottom: -14px;
-  right: 10px;
-  font-size: 68px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.06em;
-  color: rgba(255, 240, 244, 0.06);
-  pointer-events: none;
-  user-select: none;
-}
-.podium-slot.rank-1 .podium-num {
-  font-size: 86px;
-  color: rgba(245, 202, 123, 0.11);
-}
-
 .podium-rank-label {
-  position: relative;
-  z-index: 1;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.01em;
+  line-height: 1;
   color: var(--fg-secondary);
 }
-.podium-slot.rank-1 .podium-rank-label { color: #f5ca7b; }
+.podium-slot.rank-1 .podium-rank-label { font-size: 20px; color: #f5ca7b; }
 .podium-slot.rank-2 .podium-rank-label { color: #dce3ec; }
 .podium-slot.rank-3 .podium-rank-label { color: #e2a27e; }
 
