@@ -42,8 +42,11 @@ export function QueueRail(props) {
                       <div class="next-tag">Siguiente</div>
                     </Show>
                     <div class="q-name">{item.track.name}</div>
-                    <div class="q-sub">{item.track.artists}</div>
-                    <div class="q-who">por {item.addedBy}</div>
+                    <div class="q-sub">
+                      {item.track.artists}
+                      <span class="q-sep">·</span>
+                      <span class="q-who">{item.addedBy}</span>
+                    </div>
                   </div>
                 </div>
               )}
