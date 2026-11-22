@@ -10,9 +10,9 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.equal(sanitizeTrack({ id: 'bad id with spaces', name: 'Song' }), null);
     assert.equal(sanitizeTrack({ id: '', name: 'Song' }), null);
 
-    // Extreme durations clamped safely (prevents 24h freeze and 2^31 setTimeout overflow)
+    // Extreme durations clamped safely (prevents freeze and 2^31 setTimeout overflow)
     const huge = sanitizeTrack({ id: 't-huge', name: 'Huge', durationMs: 999_999_999_999 });
-    assert.equal(huge.durationMs, 10 * 60_000);
+    assert.equal(huge.durationMs, 7 * 60_000);
     const tiny = sanitizeTrack({ id: 't-tiny', name: 'Tiny', durationMs: -500 });
     assert.equal(tiny.durationMs, 15_000);
     const nanDur = sanitizeTrack({ id: 't-nan', name: 'NaN', durationMs: Number.NaN });
