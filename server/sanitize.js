@@ -1,6 +1,23 @@
 export const MIN_DURATION_MS = 15_000;
 export const MAX_DURATION_MS = 10 * 60_000;
 
+export const ALLOWED_EMOJIS = [
+  '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',
+  '🪩', '🌊', '💜', '🎵', '🥁', '🌙', '🎤', '✨',
+];
+const EMOJI_SET = new Set(ALLOWED_EMOJIS);
+
+export function randomEmoji() {
+  return ALLOWED_EMOJIS[Math.floor(Math.random() * ALLOWED_EMOJIS.length)];
+}
+
+export function sanitizeEmoji(raw) {
+  if (typeof raw === 'string' && EMOJI_SET.has(raw.trim())) {
+    return raw.trim();
+  }
+  return randomEmoji();
+}
+
 const ALLOWED_IMAGE_HOSTS = new Set([
   'i.scdn.co',
   'mosaic.scdn.co',
