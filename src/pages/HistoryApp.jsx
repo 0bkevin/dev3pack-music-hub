@@ -1,6 +1,7 @@
-import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { Cover } from '../components/Cover.jsx';
+import { SearchIcon } from '../components/Icons.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const STATUS_LABELS = {
@@ -26,9 +27,11 @@ function fmtTime(ts) {
 export function HistoryApp() {
   const [data, setData] = createSignal(null);
   const [loading, setLoading] = createSignal(true);
-  const [selectedUserId, setSelectedUserId] = createSignal(null);
-  const [userDetail, setUserDetail] = createSignal(null);
-  const [loadingUser, setLoadingUser] = createSignal(false);
+  const [activeTab, setActiveTab] = createSignal('tracks'); // 'tracks' | 'people'
+  const [searchText, setSearchText] = createSignal('');
+  const [openUserId, setOpenUserId] = createSignal(null); // single-open accordion
+  const [userTracks, setUserTracks] = createSignal({}); // userId -> TrackHistory[]
+  const [loadingUserId, setLoadingUserId] = createSignal(null);
   const [toast, setToast] = createSignal({ msg: '', ok: false, visible: false });
 
   let toastTimer = null;
@@ -51,22 +54,34 @@ export function HistoryApp() {
     }
   }
 
-  async function selectUser(userId) {
-    if (!userId) {
-      setSelectedUserId(null);
-      setUserDetail(null);
-      return;
-    }
-    setSelectedUserId(userId);
-    setLoadingUser(true);
+  async function fetchUserHistory(userId) {
+    setLoadingUserId(userId);
     try {
       const res = await api(`/api/history/user/${encodeURIComponent(userId)}`);
-      setUserDetail(res);
+      setUserTracks((prev) => ({ ...prev, [userId]: res.history || [] }));
     } catch (err) {
       showToast(err.message);
     } finally {
-      setLoadingUser(false);
+      setLoadingUserId((cur) => (cur === userId ? null : cur));
     }
+  }
+
+  function toggleParticipant(userId) {
+    if (openUserId() === userId) {
+      setOpenUserId(null);
+      return;
+    }
+    // Single-open accordion: opening a new participant automatically closes the previous one
+    setOpenUserId(userId);
+    fetchUserHistory(userId);
+  }
+
+  function jumpToParticipant(userId) {
+    if (!userId) return;
+    setActiveTab('people');
+    setSearchText('');
+    setOpenUserId(userId);
+    fetchUserHistory(userId);
   }
 
   async function enqueueFromHistory(track) {
@@ -98,12 +113,47 @@ export function HistoryApp() {
     });
   });
 
-  const topRequesters = () => data()?.topRequesters || [];
+  const top3 = () => data()?.topRequesters || [];
+  // Visual Olympic podium order: #2 (left), #1 (center), #3 (right)
+  const podiumSlots = createMemo(() => {
+    const list = top3();
+    if (list.length === 0) return [];
+    if (list.length === 1) return [{ rank: 1, person: list[0] }];
+    if (list.length === 2) {
+      return [
+        { rank: 2, person: list[1] },
+        { rank: 1, person: list[0] },
+      ];
+    }
+    return [
+      { rank: 2, person: list[1] },
+      { rank: 1, person: list[0] },
+      { rank: 3, person: list[2] },
+    ];
+  });
+
   const people = () => data()?.people || [];
   const fullHistory = () => data()?.history || [];
   const totals = () => data()?.totals || { totalTracks: 0, totalRequesters: 0 };
-  const displayedTracks = () =>
-    selectedUserId() ? userDetail()?.history || [] : fullHistory();
+
+  const filteredHistory = createMemo(() => {
+    const q = searchText().trim().toLowerCase();
+    if (!q) return fullHistory();
+    return fullHistory().filter(
+      (r) =>
+        r.track.name.toLowerCase().includes(q) ||
+        r.track.artists.toLowerCase().includes(q) ||
+        r.addedBy.toLowerCase().includes(q)
+    );
+  });
+
+  const filteredPeople = createMemo(() => {
+    const q = searchText().trim().toLowerCase();
+    if (!q) return people();
+    return people().filter(
+      (p) => p.name.toLowerCase().includes(q) || p.emoji.includes(q)
+    );
+  });
 
   return (
     <div class="hist-root">
@@ -129,40 +179,45 @@ export function HistoryApp() {
 
         <section class="hist-section">
           <div class="hist-section-head">
-            <h2>Top 5 · Los que más piden música</h2>
-            <span class="hist-hint">Toca un avatar para ver su historial completo</span>
+            <h2>Podio · Top 3</h2>
+            <span class="hist-hint">Toca un avatar para abrir su historial</span>
           </div>
 
           <Show
-            when={topRequesters().length > 0}
+            when={podiumSlots().length > 0}
             fallback={
               <div class="hist-empty">
-                {loading() ? 'Cargando ranking…' : 'Todavía nadie ha pedido canciones.'}
+                {loading() ? 'Cargando podio…' : 'Todavía nadie ha pedido canciones.'}
               </div>
             }
           >
-            <div class="top5-avatars" id="top5-list">
-              <For each={topRequesters()}>
-                {(person, idx) => (
+            <div class="podium" id="podium">
+              <For each={podiumSlots()}>
+                {(slot) => (
                   <button
                     type="button"
-                    class={`avatar-card${selectedUserId() === person.id ? ' active' : ''}`}
-                    onClick={() =>
-                      selectUser(selectedUserId() === person.id ? null : person.id)
-                    }
+                    class={`podium-slot rank-${slot.rank}${
+                      activeTab() === 'people' && openUserId() === slot.person.id ? ' active' : ''
+                    }`}
+                    onClick={() => jumpToParticipant(slot.person.id)}
                   >
-                    <span class="avatar-ring">
+                    <span class="podium-avatar-ring">
                       <span
-                        class="avatar-circle"
-                        style={{ background: trackGradient({ id: person.id }) }}
+                        class="podium-avatar"
+                        style={{ background: trackGradient({ id: slot.person.id }) }}
                       >
-                        <span class="avatar-emoji">{person.emoji}</span>
+                        <span class="podium-emoji">{slot.person.emoji}</span>
                       </span>
-                      <span class="avatar-rank tabular">#{idx() + 1}</span>
                     </span>
-                    <span class="avatar-name">{person.name}</span>
-                    <span class="avatar-count tabular">
-                      {person.songCount} {person.songCount === 1 ? 'canción' : 'canciones'}
+                    <span class="podium-name">{slot.person.name}</span>
+                    <span class="podium-meta tabular">
+                      {slot.person.songCount} {slot.person.songCount === 1 ? 'canción' : 'canciones'}
+                    </span>
+                    <span class="podium-step">
+                      <span class="podium-num tabular">{slot.rank}</span>
+                      <span class="podium-votes tabular">
+                        👍 {slot.person.totalLikes} · 👎 {slot.person.totalDislikes}
+                      </span>
                     </span>
                   </button>
                 )}
@@ -172,130 +227,221 @@ export function HistoryApp() {
         </section>
 
         <section class="hist-section">
-          <div class="hist-section-head">
-            <h2 class="hist-selected-heading">
-              <Show
-                when={selectedUserId() && userDetail()?.user}
-                fallback="Historial completo"
-              >
-                <span
-                  class="mini-avatar"
-                  style={{ background: trackGradient({ id: userDetail().user.id }) }}
-                >
-                  {userDetail().user.emoji}
-                </span>
-                <span>Historial de {userDetail().user.name}</span>
-              </Show>
-            </h2>
-            <Show when={selectedUserId()}>
+          <div class="hist-toolbar">
+            <div class="hist-tabs" role="tablist">
               <button
                 type="button"
-                class="hist-clear-filter"
-                onClick={() => selectUser(null)}
+                role="tab"
+                id="tab-tracks"
+                aria-selected={activeTab() === 'tracks'}
+                class={`hist-tab${activeTab() === 'tracks' ? ' active' : ''}`}
+                onClick={() => {
+                  setActiveTab('tracks');
+                  setSearchText('');
+                }}
               >
-                Ver todo el historial
+                <span>Todos</span>
+                <span class="hist-tab-count tabular">{fullHistory().length}</span>
               </button>
-            </Show>
+              <button
+                type="button"
+                role="tab"
+                id="tab-people"
+                aria-selected={activeTab() === 'people'}
+                class={`hist-tab${activeTab() === 'people' ? ' active' : ''}`}
+                onClick={() => {
+                  setActiveTab('people');
+                  setSearchText('');
+                }}
+              >
+                <span>Participantes</span>
+                <span class="hist-tab-count tabular">{people().length}</span>
+              </button>
+            </div>
+
+            <div class="hist-search-wrap">
+              <span class="hist-search-icon">
+                <SearchIcon />
+              </span>
+              <input
+                class="hist-search"
+                id="hist-search"
+                value={searchText()}
+                onInput={(e) => setSearchText(e.currentTarget.value)}
+                placeholder={
+                  activeTab() === 'people'
+                    ? 'Buscar participante…'
+                    : 'Buscar canción, artista o persona…'
+                }
+                autocomplete="off"
+              />
+              <Show when={searchText().trim().length > 0}>
+                <button
+                  type="button"
+                  class="hist-search-clear"
+                  aria-label="Limpiar búsqueda"
+                  onClick={() => setSearchText('')}
+                >
+                  ×
+                </button>
+              </Show>
+            </div>
           </div>
 
-          <Show when={people().length > 0}>
-            <div class="people-filter" id="people-filter">
-              <button
-                type="button"
-                class={`person-filter-btn${!selectedUserId() ? ' active' : ''}`}
-                onClick={() => selectUser(null)}
+          <Show when={activeTab() === 'tracks'}>
+            <div class="hist-table-head">
+              <span>Hora</span>
+              <span />
+              <span>Canción</span>
+              <span class="ht-user">Pedida por</span>
+              <span class="ht-votes">Votos</span>
+              <span class="ht-status">Estado</span>
+            </div>
+
+            <div class="hist-list" id="hist-list">
+              <Show
+                when={filteredHistory().length > 0}
+                fallback={
+                  <div class="hist-empty">
+                    {loading() ? 'Cargando historial…' : 'No hay canciones que coincidan.'}
+                  </div>
+                }
               >
-                Todos <span class="tabular">{fullHistory().length}</span>
-              </button>
-              <For each={people()}>
-                {(p) => (
-                  <button
-                    type="button"
-                    class={`person-filter-btn${selectedUserId() === p.id ? ' active' : ''}`}
-                    onClick={() => selectUser(p.id)}
-                  >
-                    <span
-                      class="mini-avatar sm"
-                      style={{ background: trackGradient({ id: p.id }) }}
-                    >
-                      {p.emoji}
-                    </span>
-                    <span>{p.name}</span>
-                    <span class="tabular">{p.songCount}</span>
-                  </button>
-                )}
-              </For>
+                <For each={filteredHistory()}>
+                  {(row) => (
+                    <div class="hist-row">
+                      <span class="hist-time tabular">{fmtTime(row.requestedAt)}</span>
+                      <Cover track={row.track} class="hist-art" />
+                      <div class="hist-track">
+                        <div class="hist-track-name">{row.track.name}</div>
+                        <div class="hist-track-artist">
+                          {row.track.artists} · {fmtMs(row.track.durationMs)}
+                        </div>
+                      </div>
+                      <div class="hist-who">
+                        <Show
+                          when={row.userId}
+                          fallback={
+                            <span class="hist-who-static">
+                              <span class="mini-avatar sm">{row.addedByEmoji}</span>
+                              <span class="hist-who-name">{row.addedBy}</span>
+                            </span>
+                          }
+                        >
+                          <button
+                            type="button"
+                            class="hist-who-btn"
+                            onClick={() => jumpToParticipant(row.userId)}
+                          >
+                            <span
+                              class="mini-avatar sm"
+                              style={{ background: trackGradient({ id: row.userId }) }}
+                            >
+                              {row.addedByEmoji}
+                            </span>
+                            <span class="hist-who-name">{row.addedBy}</span>
+                          </button>
+                        </Show>
+                      </div>
+                      <div class="hist-votes tabular">
+                        <span class="vote-pos">👍 {row.likes}</span>
+                        <span class="vote-neg">👎 {row.dislikes}</span>
+                      </div>
+                      <span class={`hist-status ${row.status}`}>
+                        {STATUS_LABELS[row.status] || row.status}
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </Show>
             </div>
           </Show>
 
-          <div class="hist-table-head">
-            <span>Hora</span>
-            <span />
-            <span>Canción</span>
-            <span class="ht-user">Pedida por</span>
-            <span class="ht-votes">Votos</span>
-            <span class="ht-status">Estado</span>
-          </div>
+          <Show when={activeTab() === 'people'}>
+            <div class="acc-list" id="people-accordion">
+              <Show
+                when={filteredPeople().length > 0}
+                fallback={
+                  <div class="hist-empty">
+                    {loading() ? 'Cargando participantes…' : 'No encontramos ese participante.'}
+                  </div>
+                }
+              >
+                <For each={filteredPeople()}>
+                  {(person, idx) => {
+                    const isOpen = () => openUserId() === person.id;
+                    const tracks = () => userTracks()[person.id] || [];
+                    const isBusy = () => loadingUserId() === person.id;
 
-          <div class="hist-list" id="hist-list">
-            <Show
-              when={!loadingUser() && displayedTracks().length > 0}
-              fallback={
-                <div class="hist-empty">
-                  {loading() || loadingUser()
-                    ? 'Cargando historial…'
-                    : 'No hay canciones registradas todavía.'}
-                </div>
-              }
-            >
-              <For each={displayedTracks()}>
-                {(row) => (
-                  <div class="hist-row">
-                    <span class="hist-time tabular">{fmtTime(row.requestedAt)}</span>
-                    <Cover track={row.track} class="hist-art" />
-                    <div class="hist-track">
-                      <div class="hist-track-name">{row.track.name}</div>
-                      <div class="hist-track-artist">
-                        {row.track.artists} · {fmtMs(row.track.durationMs)}
-                      </div>
-                    </div>
-                    <div class="hist-who">
-                      <Show
-                        when={row.userId}
-                        fallback={
-                          <span class="hist-who-static">
-                            <span class="mini-avatar sm">{row.addedByEmoji}</span>
-                            <span class="hist-who-name">{row.addedBy}</span>
-                          </span>
-                        }
-                      >
+                    return (
+                      <div class={`acc-item${isOpen() ? ' open' : ''}`}>
                         <button
                           type="button"
-                          class="hist-who-btn"
-                          onClick={() => selectUser(row.userId)}
+                          class="acc-trigger"
+                          aria-expanded={isOpen()}
+                          onClick={() => toggleParticipant(person.id)}
                         >
+                          <span class="acc-rank tabular">#{idx() + 1}</span>
                           <span
-                            class="mini-avatar sm"
-                            style={{ background: trackGradient({ id: row.userId }) }}
+                            class="acc-avatar"
+                            style={{ background: trackGradient({ id: person.id }) }}
                           >
-                            {row.addedByEmoji}
+                            {person.emoji}
                           </span>
-                          <span class="hist-who-name">{row.addedBy}</span>
+                          <span class="acc-identity">
+                            <span class="acc-name">{person.name}</span>
+                            <span class="acc-sub tabular">
+                              {person.songCount} {person.songCount === 1 ? 'canción' : 'canciones'}
+                            </span>
+                          </span>
+                          <span class="acc-votes tabular">
+                            <span class="vote-pill pos">👍 {person.totalLikes}</span>
+                            <span class="vote-pill neg">👎 {person.totalDislikes}</span>
+                          </span>
+                          <span class="acc-chevron" aria-hidden="true">▾</span>
                         </button>
-                      </Show>
-                    </div>
-                    <div class="hist-votes tabular">
-                      <span>👍 {row.likes}</span>
-                      <span>👎 {row.dislikes}</span>
-                    </div>
-                    <span class={`hist-status ${row.status}`}>
-                      {STATUS_LABELS[row.status] || row.status}
-                    </span>
-                  </div>
-                )}
-              </For>
-            </Show>
-          </div>
+
+                        <div class="acc-panel">
+                          <div class="acc-panel-inner">
+                            <Show
+                              when={!isBusy() && tracks().length > 0}
+                              fallback={
+                                <div class="acc-empty">
+                                  {isBusy() ? 'Cargando canciones…' : 'Sin canciones registradas.'}
+                                </div>
+                              }
+                            >
+                              <For each={tracks()}>
+                                {(row) => (
+                                  <div class="acc-track-row">
+                                    <span class="hist-time tabular">{fmtTime(row.requestedAt)}</span>
+                                    <Cover track={row.track} class="acc-track-art" />
+                                    <div class="hist-track">
+                                      <div class="hist-track-name">{row.track.name}</div>
+                                      <div class="hist-track-artist">
+                                        {row.track.artists} · {fmtMs(row.track.durationMs)}
+                                      </div>
+                                    </div>
+                                    <div class="hist-votes tabular">
+                                      <span class="vote-pos">👍 {row.likes}</span>
+                                      <span class="vote-neg">👎 {row.dislikes}</span>
+                                    </div>
+                                    <span class={`hist-status ${row.status}`}>
+                                      {STATUS_LABELS[row.status] || row.status}
+                                    </span>
+                                  </div>
+                                )}
+                              </For>
+                            </Show>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </For>
+              </Show>
+            </div>
+          </Show>
         </section>
       </div>
 
