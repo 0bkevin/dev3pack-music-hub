@@ -1,5 +1,5 @@
 /* =========================================================
-   HISTORY VIEW (/history) — Top 5 + Full & Per-User History
+   HISTORY VIEW (/history) — Emoji Avatar Top 5 + Full & Per-User History
    ========================================================= */
 
 .hist-root {
@@ -27,7 +27,7 @@
   padding: 32px 28px 64px;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 38px;
 }
 
 .hist-header {
@@ -86,7 +86,7 @@
 .hist-section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .hist-section-head {
   display: flex;
@@ -100,6 +100,11 @@
   font-weight: 600;
   letter-spacing: -0.015em;
   color: #fff;
+}
+.hist-selected-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
 }
 .hist-hint {
   font-size: 12px;
@@ -119,48 +124,77 @@
 }
 .hist-clear-filter:active { transform: scale(0.97); }
 
-/* Top 5 leaderboard — open clean rows, no heavy boxes */
-.top5-grid {
+/* ---------- Top 5 Emoji Avatars (open on canvas, zero boxy cards) ---------- */
+
+.top5-avatars {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+  padding: 6px 0 4px;
 }
-.top5-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, transform 160ms var(--ease-out);
-}
-.top5-row.active {
-  background: rgba(85, 23, 39, 0.6);
-  border-color: rgba(232, 93, 127, 0.55);
-}
-.top5-row:active { transform: scale(0.98); }
-.top5-rank {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--accent);
-  min-width: 20px;
-}
-.top5-emoji {
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.top5-meta {
-  flex: 1;
-  min-width: 0;
+
+.avatar-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0;
+  transition: transform 160ms var(--ease-out);
 }
-.top5-name {
+.avatar-card:active { transform: scale(0.96); }
+
+.avatar-ring {
+  position: relative;
+  padding: 3px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 232, 238, 0.12);
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+.avatar-card.active .avatar-ring {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(232, 93, 127, 0.16);
+}
+
+.avatar-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+.avatar-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.avatar-rank {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #1b080e;
+  border: 1px solid rgba(232, 93, 127, 0.45);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.avatar-card:first-child .avatar-rank {
+  background: var(--wine-mid);
+  border-color: var(--accent);
+}
+
+.avatar-name {
+  max-width: 100%;
   font-size: 13px;
   font-weight: 600;
   color: #fff;
@@ -169,10 +203,29 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.top5-count {
-  font-size: 11px;
-  color: var(--fg-secondary);
-  line-height: 1.2;
+.avatar-count {
+  font-size: 11.5px;
+  color: var(--fg-tertiary);
+  margin-top: -5px;
+}
+
+/* Mini circular emoji avatar for filters & table */
+.mini-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 13px;
+  line-height: 1;
+  background: rgba(85, 23, 39, 0.55);
+  border: 1px solid rgba(255, 232, 238, 0.14);
+  flex-shrink: 0;
+}
+.mini-avatar.sm {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
 }
 
 /* People filter pills */
@@ -184,10 +237,10 @@
 .person-filter-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 11px;
-  border-radius: var(--r-sm);
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px 0 6px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--fg-secondary);
@@ -196,6 +249,7 @@
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 160ms var(--ease-out);
 }
+.person-filter-btn:first-child { padding-left: 12px; }
 .person-filter-btn.active {
   background: var(--wine);
   border-color: rgba(232, 93, 127, 0.55);
@@ -208,7 +262,7 @@
 /* History table */
 .hist-table-head {
   display: grid;
-  grid-template-columns: 52px 38px minmax(0, 1.4fr) minmax(0, 0.8fr) 96px 88px;
+  grid-template-columns: 48px 38px minmax(0, 1.4fr) minmax(0, 0.85fr) 92px 88px;
   gap: 14px;
   align-items: center;
   padding: 0 8px 8px;
@@ -225,7 +279,7 @@
 }
 .hist-row {
   display: grid;
-  grid-template-columns: 52px 38px minmax(0, 1.4fr) minmax(0, 0.8fr) 96px 88px;
+  grid-template-columns: 48px 38px minmax(0, 1.4fr) minmax(0, 0.85fr) 92px 88px;
   gap: 14px;
   align-items: center;
   padding: 9px 8px;
@@ -263,10 +317,14 @@
 .hist-who { min-width: 0; }
 .hist-who-btn,
 .hist-who-static {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   max-width: 100%;
   font-size: 12.5px;
   color: var(--fg-secondary);
+}
+.hist-who-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -274,9 +332,9 @@
 .hist-who-btn {
   border: none;
   background: transparent;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  border-radius: var(--r-xs);
+  padding: 3px 6px 3px 3px;
+  margin: -3px -6px -3px -3px;
+  border-radius: 999px;
   cursor: pointer;
   text-align: left;
 }
@@ -337,7 +395,7 @@
 .toast.ok { border-color: rgba(232, 93, 127, 0.55); }
 
 @media (hover: hover) and (pointer: fine) {
-  .top5-row:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .avatar-card:hover .avatar-ring { border-color: rgba(232, 93, 127, 0.65); }
   .person-filter-btn:hover { background: var(--surface-hover); color: #fff; border-color: var(--border-strong); }
   .hist-row:hover { background: var(--surface); }
   .hist-who-btn:hover { color: #fff; background: var(--surface-hover); }
@@ -348,6 +406,12 @@
   .hist-container { padding: 24px 16px 48px; gap: 28px; }
   .hist-header { flex-direction: column; align-items: flex-start; gap: 14px; }
   .hist-stat { align-items: flex-start; }
+  .top5-avatars {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    gap: 10px;
+  }
+  .avatar-circle { width: 54px; height: 54px; }
+  .avatar-emoji { font-size: 25px; }
   .hist-table-head,
   .hist-row { grid-template-columns: 44px 36px minmax(0, 1fr) 78px; gap: 10px; }
   .ht-user, .ht-votes, .hist-who, .hist-votes { display: none; }

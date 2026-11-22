@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
-import { api, fmtMs, loadSession, saveSession } from '../lib/api.js';
+import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { Cover } from '../components/Cover.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
@@ -130,7 +130,7 @@ export function HistoryApp() {
         <section class="hist-section">
           <div class="hist-section-head">
             <h2>Top 5 · Los que más piden música</h2>
-            <span class="hist-hint">Haz clic en alguien para ver su historial completo</span>
+            <span class="hist-hint">Toca un avatar para ver su historial completo</span>
           </div>
 
           <Show
@@ -141,23 +141,28 @@ export function HistoryApp() {
               </div>
             }
           >
-            <div class="top5-grid" id="top5-list">
+            <div class="top5-avatars" id="top5-list">
               <For each={topRequesters()}>
                 {(person, idx) => (
                   <button
                     type="button"
-                    class={`top5-row${selectedUserId() === person.id ? ' active' : ''}`}
+                    class={`avatar-card${selectedUserId() === person.id ? ' active' : ''}`}
                     onClick={() =>
                       selectUser(selectedUserId() === person.id ? null : person.id)
                     }
                   >
-                    <span class="top5-rank tabular">#{idx() + 1}</span>
-                    <span class="top5-emoji">{person.emoji}</span>
-                    <span class="top5-meta">
-                      <span class="top5-name">{person.name}</span>
-                      <span class="top5-count tabular">
-                        {person.songCount} {person.songCount === 1 ? 'canción' : 'canciones'}
+                    <span class="avatar-ring">
+                      <span
+                        class="avatar-circle"
+                        style={{ background: trackGradient({ id: person.id }) }}
+                      >
+                        <span class="avatar-emoji">{person.emoji}</span>
                       </span>
+                      <span class="avatar-rank tabular">#{idx() + 1}</span>
+                    </span>
+                    <span class="avatar-name">{person.name}</span>
+                    <span class="avatar-count tabular">
+                      {person.songCount} {person.songCount === 1 ? 'canción' : 'canciones'}
                     </span>
                   </button>
                 )}
@@ -168,12 +173,18 @@ export function HistoryApp() {
 
         <section class="hist-section">
           <div class="hist-section-head">
-            <h2>
+            <h2 class="hist-selected-heading">
               <Show
                 when={selectedUserId() && userDetail()?.user}
                 fallback="Historial completo"
               >
-                {userDetail().user.emoji} Historial de {userDetail().user.name}
+                <span
+                  class="mini-avatar"
+                  style={{ background: trackGradient({ id: userDetail().user.id }) }}
+                >
+                  {userDetail().user.emoji}
+                </span>
+                <span>Historial de {userDetail().user.name}</span>
               </Show>
             </h2>
             <Show when={selectedUserId()}>
@@ -203,7 +214,12 @@ export function HistoryApp() {
                     class={`person-filter-btn${selectedUserId() === p.id ? ' active' : ''}`}
                     onClick={() => selectUser(p.id)}
                   >
-                    <span>{p.emoji}</span>
+                    <span
+                      class="mini-avatar sm"
+                      style={{ background: trackGradient({ id: p.id }) }}
+                    >
+                      {p.emoji}
+                    </span>
                     <span>{p.name}</span>
                     <span class="tabular">{p.songCount}</span>
                   </button>
@@ -248,7 +264,8 @@ export function HistoryApp() {
                         when={row.userId}
                         fallback={
                           <span class="hist-who-static">
-                            {row.addedByEmoji} {row.addedBy}
+                            <span class="mini-avatar sm">{row.addedByEmoji}</span>
+                            <span class="hist-who-name">{row.addedBy}</span>
                           </span>
                         }
                       >
@@ -257,13 +274,19 @@ export function HistoryApp() {
                           class="hist-who-btn"
                           onClick={() => selectUser(row.userId)}
                         >
-                          {row.addedByEmoji} {row.addedBy}
+                          <span
+                            class="mini-avatar sm"
+                            style={{ background: trackGradient({ id: row.userId }) }}
+                          >
+                            {row.addedByEmoji}
+                          </span>
+                          <span class="hist-who-name">{row.addedBy}</span>
                         </button>
                       </Show>
                     </div>
                     <div class="hist-votes tabular">
-                      <span class="hv-like">👍 {row.likes}</span>
-                      <span class="hv-dislike">👎 {row.dislikes}</span>
+                      <span>👍 {row.likes}</span>
+                      <span>👎 {row.dislikes}</span>
                     </div>
                     <span class={`hist-status ${row.status}`}>
                       {STATUS_LABELS[row.status] || row.status}
