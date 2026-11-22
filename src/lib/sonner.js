@@ -2,14 +2,18 @@ import { createSignal } from 'solid-js';
 
 let seq = 0;
 const [toasts, setToasts] = createSignal([]);
-const timers = new Map();
+const timers = new Map(); // id -> { timer, startedAt, remaining }
 
-function dismiss(id) {
-  const t = timers.get(id);
-  if (t) {
-    clearTimeout(t);
+function clearEntry(id) {
+  const entry = timers.get(id);
+  if (entry) {
+    clearTimeout(entry.timer);
     timers.delete(id);
   }
+}
+
+function dismiss(id) {
+  clearEntry(id);
   setToasts((prev) =>
     prev.map((item) => (item.id === id ? { ...item, leaving: true } : item))
   );
@@ -18,29 +22,42 @@ function dismiss(id) {
   }, 240);
 }
 
-function scheduleDismiss(id, duration) {
-  const existing = timers.get(id);
-  if (existing) clearTimeout(existing);
-  const timer = setTimeout(() => dismiss(id), duration);
-  timers.set(id, timer);
+function scheduleDismiss(id, remaining) {
+  clearEntry(id);
+  const ms = Math.max(400, remaining);
+  const timer = setTimeout(() => dismiss(id), ms);
+  timers.set(id, { timer, startedAt: Date.now(), remaining: ms });
 }
 
 function pauseToast(id) {
-  const t = timers.get(id);
-  if (t) {
-    clearTimeout(t);
-    timers.delete(id);
-  }
+  const entry = timers.get(id);
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  const elapsed = Date.now() - entry.startedAt;
+  timers.set(id, {
+    timer: null,
+    startedAt: 0,
+    remaining: Math.max(400, entry.remaining - elapsed),
+  });
 }
 
-function resumeToast(id, duration = 2200) {
-  scheduleDismiss(id, duration);
+function resumeToast(id) {
+  const entry = timers.get(id);
+  if (!entry || entry.timer) return;
+  scheduleDismiss(id, entry.remaining);
 }
 
 function push(type, title, description = '', duration = 3800) {
   const id = ++seq;
   const item = { id, type, title, description, duration, leaving: false };
-  setToasts((prev) => [...prev.slice(-2), item]);
+  setToasts((prev) => {
+    const next = [...prev, item];
+    while (next.length > 3) {
+      const evicted = next.shift();
+      if (evicted) clearEntry(evicted.id);
+    }
+    return next;
+  });
   scheduleDismiss(id, duration);
   return id;
 }

@@ -77,17 +77,34 @@ export function HistoryApp() {
     fetchUserHistory(userId);
   }
 
+  async function ensureHistorySession() {
+    let s = loadSession();
+    if (s?.clientId) return s;
+    s = await api('/api/join', { method: 'POST', body: JSON.stringify({}) });
+    saveSession(s);
+    return s;
+  }
+
   async function enqueueFromHistory(track) {
     try {
-      let s = loadSession();
-      if (!s?.clientId) {
-        s = await api('/api/join', { method: 'POST', body: JSON.stringify({}) });
-        saveSession(s);
+      let s = await ensureHistorySession();
+      try {
+        await api('/api/queue', {
+          method: 'POST',
+          body: JSON.stringify({ clientId: s.clientId, track }),
+        });
+      } catch (err) {
+        if (err.message.includes('entrar primero')) {
+          saveSession(null);
+          s = await ensureHistorySession();
+          await api('/api/queue', {
+            method: 'POST',
+            body: JSON.stringify({ clientId: s.clientId, track }),
+          });
+        } else {
+          throw err;
+        }
       }
-      await api('/api/queue', {
-        method: 'POST',
-        body: JSON.stringify({ clientId: s.clientId, track }),
-      });
       toast.success(
         `«${track.name}» agregada`,
         'Ya está en la cola de la sala.'

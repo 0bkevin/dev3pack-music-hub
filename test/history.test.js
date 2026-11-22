@@ -17,6 +17,9 @@ describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () =>
     assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('<script>alert(1)</script>')));
     assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('hello')));
     assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('🔥🚀')));
+    // Combining-mark graffiti and Unicode tag characters rejected
+    assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('😀\u20DD')));
+    assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('😀\u{E0041}')));
 
     const db = new MusicDB(':memory:');
     const room = new Room(() => {}, db);
@@ -114,6 +117,12 @@ describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () =>
       } finally {
         clearTimeout(room2.endTimer);
       }
+      // Verify ISO 27701 retention purge removes stale rows cleanly
+      db.db.prepare('UPDATE track_history SET requested_at = 1, played_at = 1').run();
+      db.db.prepare('UPDATE users SET last_seen_at = 1').run();
+      const purged = db.pruneRetention(60_000);
+      assert.equal(purged.deletedHistory, 10);
+      assert.equal(purged.deletedUsers, 7);
     } finally {
       clearTimeout(room.endTimer);
       db.close();

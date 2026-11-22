@@ -41,7 +41,7 @@ export function Toaster(props) {
             role={item.type === 'error' ? 'alert' : 'status'}
             aria-live={item.type === 'error' ? 'assertive' : 'polite'}
             onMouseEnter={() => pauseToast(item.id)}
-            onMouseLeave={() => resumeToast(item.id, 1800)}
+            onMouseLeave={() => resumeToast(item.id)}
           >
             <ToastIcon type={item.type} />
             <div class="sonner-body">

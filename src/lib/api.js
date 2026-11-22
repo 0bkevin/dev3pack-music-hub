@@ -40,7 +40,7 @@ export async function api(path, opts = {}) {
 export function hashCode(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+  return h >>> 0;
 }
 
 // Curated fallback gradients engineered to harmonize with Caracas 2026 vinotinto (#551727)
