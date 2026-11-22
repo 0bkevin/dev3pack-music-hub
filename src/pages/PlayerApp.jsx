@@ -1,8 +1,12 @@
-import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
-import { api, fmtMs, loadSession, saveSession } from '../lib/api.js';
+import { createSignal, createMemo, onMount, onCleanup } from 'solid-js';
+import { api, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
-import { Cover } from '../components/Cover.jsx';
-import { Equalizer, MusicNoteIcon, QueueIcon, SearchIcon, TvIcon } from '../components/Icons.jsx';
+import { Topbar } from '../components/player/Topbar.jsx';
+import { NowPlayingHero } from '../components/player/NowPlayingHero.jsx';
+import { TrackBrowser } from '../components/player/TrackBrowser.jsx';
+import { QueueRail } from '../components/player/QueueRail.jsx';
+import { PlayerBar } from '../components/player/PlayerBar.jsx';
+import { JoinOverlay } from '../components/player/JoinOverlay.jsx';
 
 const MOODS = [
   'Bad Bunny', 'Daft Punk', 'The Weeknd', 'Karol G',
@@ -77,6 +81,7 @@ export function PlayerApp() {
 
   const isManualSearch = () => searchText().trim().length > 0;
   const queuedIds = createMemo(() => new Set(queue().map((q) => q.track.id)));
+  const skipDotIndexes = createMemo(() => Array.from({ length: dislikesToSkip() }, (_, i) => i));
 
   async function fetchTracks(query) {
     const clean = query.trim();
@@ -163,8 +168,6 @@ export function PlayerApp() {
     }
   }
 
-  const skipDotIndexes = createMemo(() => Array.from({ length: dislikesToSkip() }, (_, i) => i));
-
   return (
     <>
       <div class="app-root">
@@ -182,405 +185,74 @@ export function PlayerApp() {
 
         <div class="workspace">
           <main class="main-pane">
-            <header class="topbar">
-              <a class="brand" href="/">
-                <span class="brand-mark">
-                  <MusicNoteIcon size={15} strokeWidth={2.4} />
-                </span>
-                <span class="brand-title">
-                  Dev3pack <span class="brand-sub">Music</span>
-                </span>
-              </a>
-
-              <div class="search-wrap">
-                <span class="search-icon">
-                  <SearchIcon />
-                </span>
-                <input
-                  ref={searchRef}
-                  class="search-input"
-                  id="search-input"
-                  value={searchText()}
-                  onInput={(e) => handleSearchInput(e.currentTarget.value)}
-                  placeholder="¿Qué quieres escuchar?"
-                  autocomplete="off"
-                />
-                <Show when={isManualSearch()}>
-                  <button
-                    class="search-clear"
-                    id="search-clear"
-                    type="button"
-                    aria-label="Limpiar búsqueda"
-                    onClick={clearSearch}
-                  >
-                    ×
-                  </button>
-                </Show>
-              </div>
-
-              <div class="topbar-actions">
-                <button
-                  class="queue-toggle-btn"
-                  id="queue-toggle-btn"
-                  type="button"
-                  aria-label="Ver cola"
-                  onClick={() => setQueueOpen((v) => !v)}
-                >
-                  <QueueIcon />
-                  <span>Cola</span>
-                  <span class="queue-toggle-count tabular">{queue().length}</span>
-                </button>
-                <Show when={session()?.name}>
-                  <button
-                    class="user-btn"
-                    id="who-btn"
-                    type="button"
-                    title="Cambiar nombre"
-                    onClick={openJoinOverlay}
-                  >
-                    <span class="user-avatar">
-                      {session().name.trim()[0]?.toUpperCase() || '?'}
-                    </span>
-                    <span class="user-btn-name">{session().name}</span>
-                  </button>
-                </Show>
-                <a class="tv-link" href="/screen" target="_blank" rel="noopener">
-                  <TvIcon />
-                  <span class="tv-link-label">Modo TV</span>
-                </a>
-              </div>
-            </header>
-
-            <section class="hero-stage">
-              <div class="stage-cover-wrap">
-                <Cover
-                  track={current()?.track}
-                  class="stage-cover"
-                  placeholder={!current()?.track?.imageUrl}
-                  showIcon={!current()?.track?.imageUrl}
-                  iconSize={44}
-                />
-              </div>
-
-              <div class="stage-meta">
-                <div class="stage-status">
-                  <Show when={current()}>
-                    <Equalizer />
-                  </Show>
-                  <span>{current() ? 'Sonando ahora' : 'Sala lista'}</span>
-                  <Show when={current()}>
-                    <span class="dot-sep">·</span>
-                    <span class="requester">Pedida por {current().addedBy}</span>
-                  </Show>
-                </div>
-
-                <h1 class="stage-title">
-                  {current()?.track?.name || 'Pon la primera canción'}
-                </h1>
-                <div class="stage-artist">
-                  {current()?.track?.artists || 'Busca cualquier artista o elige una sugerencia abajo'}
-                </div>
-
-                <div class="stage-actions">
-                  <button
-                    class={`react-pill like${room.myVote() === 1 ? ' active' : ''}`}
-                    id="like-btn"
-                    type="button"
-                    onClick={() => sendVote(1)}
-                  >
-                    <span class="emoji">👍</span>
-                    <span>Me gusta</span>
-                    <span class="count">{likes()}</span>
-                  </button>
-                  <button
-                    class={`react-pill dislike${room.myVote() === -1 ? ' active' : ''}`}
-                    id="dislike-btn"
-                    type="button"
-                    onClick={() => sendVote(-1)}
-                  >
-                    <span class="emoji">👎</span>
-                    <span>No me gusta</span>
-                    <span class="count">{dislikes()}</span>
-                  </button>
-                  <div class="skip-status">
-                    <span class="skip-dots">
-                      <For each={skipDotIndexes()}>
-                        {(i) => <i class={i < dislikes() ? 'on' : ''} />}
-                      </For>
-                    </span>
-                    <span>
-                      {dislikes()}/{dislikesToSkip()} para saltar
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section class="browser-section">
-              <div class="section-header">
-                <h2 class="section-title">
-                  {isManualSearch()
-                    ? `Resultados para "${searchText().trim()}"`
-                    : `Explorar · ${activeMood()}`}
-                </h2>
-                <span class="section-sub">Máx. 3 canciones cada 10 min · 30 min para repetir</span>
-              </div>
-
-              <Show when={!isManualSearch()}>
-                <div class="mood-pills" id="mood-pills">
-                  <For each={MOODS}>
-                    {(mood) => (
-                      <button
-                        class={`mood-pill${activeMood() === mood ? ' active' : ''}`}
-                        type="button"
-                        data-q={mood}
-                        onClick={() => selectMood(mood)}
-                      >
-                        {mood}
-                      </button>
-                    )}
-                  </For>
-                </div>
-              </Show>
-
-              <div class="track-table-head">
-                <span class="th-num">#</span>
-                <span />
-                <span>Título</span>
-                <span class="th-album">Álbum</span>
-                <span class="th-dur">Duración</span>
-                <span />
-              </div>
-
-              <div class="track-list" id="results">
-                <Show
-                  when={results().length > 0}
-                  fallback={
-                    <div class="empty-copy">
-                      {searching() ? 'Buscando…' : 'No encontramos canciones para esa búsqueda.'}
-                    </div>
-                  }
-                >
-                  <For each={results()}>
-                    {(track, idx) => {
-                      const isPlaying = () => current()?.track?.id === track.id;
-                      const isQueued = () => queuedIds().has(track.id);
-                      const isBusy = () => pendingIds().has(track.id);
-                      const disabled = () => isPlaying() || isQueued() || isBusy();
-                      const label = () =>
-                        isPlaying() ? 'Sonando' : isQueued() ? '✓ En cola' : '+ Cola';
-
-                      return (
-                        <div class="track-row">
-                          <span class="track-idx">{idx() + 1}</span>
-                          <Cover track={track} class="track-art" />
-                          <div class="track-main">
-                            <div class="track-name">{track.name}</div>
-                            <div class="track-artist">{track.artists}</div>
-                          </div>
-                          <div class="track-album">{track.album || ''}</div>
-                          <div class="track-dur">{fmtMs(track.durationMs)}</div>
-                          <button
-                            class="add-btn"
-                            type="button"
-                            disabled={disabled()}
-                            onClick={() => enqueueTrack(track)}
-                          >
-                            {label()}
-                          </button>
-                        </div>
-                      );
-                    }}
-                  </For>
-                </Show>
-              </div>
-            </section>
-          </main>
-
-          <Show when={queueOpen()}>
-            <div class="drawer-backdrop" onClick={() => setQueueOpen(false)} />
-          </Show>
-
-          <aside class={`queue-rail${queueOpen() ? ' open' : ''}`} id="queue-rail">
-            <div class="rail-head">
-              <h2 class="rail-title">A continuación</h2>
-              <div class="rail-head-right">
-                <span class="rail-badge">{queue().length}</span>
-                <button
-                  class="rail-close-btn"
-                  type="button"
-                  aria-label="Cerrar cola"
-                  onClick={() => setQueueOpen(false)}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div class="rail-scroll">
-              <Show
-                when={queue().length > 0}
-                fallback={
-                  <div class="empty-copy">
-                    La cola está vacía. Cuando termine la canción actual elegimos una aleatoria.
-                  </div>
-                }
-              >
-                <For each={queue()}>
-                  {(item, i) => (
-                    <div class={`q-item${i() === 0 ? ' next-up' : ''}`}>
-                      <Cover track={item.track} class="q-art" />
-                      <div class="q-info">
-                        <Show when={i() === 0}>
-                          <div class="next-tag">Siguiente</div>
-                        </Show>
-                        <div class="q-name">{item.track.name}</div>
-                        <div class="q-sub">{item.track.artists}</div>
-                        <div class="q-who">por {item.addedBy}</div>
-                      </div>
-                    </div>
-                  )}
-                </For>
-              </Show>
-            </div>
-
-            <div class="rail-listeners">
-              <div class="rail-listeners-head">
-                <span>
-                  <i class="live-dot" /> En la sala
-                </span>
-                <span class="tabular">{room.state()?.listenerCount || 0}</span>
-              </div>
-              <div class="people-row">
-                <For each={listeners()}>
-                  {(c) => (
-                    <span class={`person-chip${session()?.publicId === c.id ? ' me' : ''}`}>
-                      {c.name}
-                    </span>
-                  )}
-                </For>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <footer class="player-bar">
-          <div class="pb-track">
-            <Cover track={current()?.track} class="pb-art" />
-            <div class="pb-meta">
-              <div class="pb-title">{current()?.track?.name || 'Sin reproducción'}</div>
-              <div class="pb-artist">
-                {current()?.track?.artists || 'Agrega una canción para empezar'}
-              </div>
-            </div>
-          </div>
-
-          <div class="pb-center">
-            <div class="pb-status">
-              <Show when={current()}>
-                <Equalizer />
-              </Show>
-              <span>
-                {current() ? `Pedida por ${current().addedBy}` : 'Esperando música'}
-              </span>
-            </div>
-            <div class="pb-progress-row">
-              <span class="pb-time">{fmtMs(room.elapsedMs())}</span>
-              <div class="progress-track">
-                <i
-                  class="progress-fill"
-                  style={{ transform: `scaleX(${room.progressPct() / 100})` }}
-                />
-              </div>
-              <span class="pb-time end">
-                {current() ? fmtMs(room.totalMs()) : '0:00'}
-              </span>
-            </div>
-          </div>
-
-          <div class="pb-right">
-            <button
-              class={`pb-vote like${room.myVote() === 1 ? ' active' : ''}`}
-              id="pb-like-btn"
-              type="button"
-              aria-label="Me gusta"
-              onClick={() => sendVote(1)}
-            >
-              <span>👍</span>
-              <span class="tabular">{likes()}</span>
-            </button>
-            <button
-              class={`pb-vote dislike${room.myVote() === -1 ? ' active' : ''}`}
-              id="pb-dislike-btn"
-              type="button"
-              aria-label="No me gusta"
-              onClick={() => sendVote(-1)}
-            >
-              <span>👎</span>
-              <span class="tabular">{dislikes()}</span>
-            </button>
-            <span class="provider-tag">
-              {(room.state()?.provider || '').toUpperCase()}
-            </span>
-          </div>
-        </footer>
-      </div>
-
-      <Show when={!session()?.clientId}>
-        <div class="join-overlay" id="join-overlay">
-          <div class="join-sheet">
-            <div class="join-head">
-              <div class="join-mark">
-                <MusicNoteIcon size={22} strokeWidth={2.2} />
-              </div>
-              <h1>Dev3pack Music</h1>
-              <p>Pon tu nombre para pedir canciones y votar lo que suena, o entra como anónimo.</p>
-            </div>
-
-            <Show when={current()}>
-              <div class="join-live-pill">
-                <Equalizer />
-                <span>
-                  Sonando <b>{current().track.name}</b> · {current().track.artists}
-                </span>
-              </div>
-            </Show>
-
-            <input
-              ref={nameRef}
-              class="join-input"
-              id="name-input"
-              maxLength={24}
-              value={nameInput()}
-              onInput={(e) => setNameInput(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') joinRoom(nameInput() || undefined);
-              }}
-              placeholder="Tu nombre o alias"
-              autocomplete="off"
+            <Topbar
+              searchRef={(el) => { searchRef = el; }}
+              searchText={searchText}
+              isManualSearch={isManualSearch}
+              onSearchInput={handleSearchInput}
+              onClearSearch={clearSearch}
+              queueCount={() => queue().length}
+              onToggleQueue={() => setQueueOpen((v) => !v)}
+              session={session}
+              onOpenJoin={openJoinOverlay}
             />
 
-            <div class="join-btns">
-              <button
-                class="btn-primary"
-                id="join-btn"
-                type="button"
-                onClick={() => joinRoom(nameInput() || undefined)}
-              >
-                Entrar a escuchar
-              </button>
-              <button
-                class="btn-subtle"
-                id="anon-btn"
-                type="button"
-                onClick={() => joinRoom(undefined)}
-              >
-                Entrar como anónimo
-              </button>
-            </div>
-          </div>
+            <NowPlayingHero
+              current={current}
+              myVote={room.myVote}
+              likes={likes}
+              dislikes={dislikes}
+              dislikesToSkip={dislikesToSkip}
+              skipDotIndexes={skipDotIndexes}
+              onVote={sendVote}
+            />
+
+            <TrackBrowser
+              moods={MOODS}
+              activeMood={activeMood}
+              searchText={searchText}
+              isManualSearch={isManualSearch}
+              results={results}
+              searching={searching}
+              currentTrackId={() => current()?.track?.id}
+              queuedIds={queuedIds}
+              pendingIds={pendingIds}
+              onSelectMood={selectMood}
+              onEnqueue={enqueueTrack}
+            />
+          </main>
+
+          <QueueRail
+            open={queueOpen}
+            onClose={() => setQueueOpen(false)}
+            queue={queue}
+            listeners={listeners}
+            listenerCount={() => room.state()?.listenerCount || 0}
+            selfPublicId={() => session()?.publicId}
+          />
         </div>
-      </Show>
+
+        <PlayerBar
+          current={current}
+          elapsedMs={room.elapsedMs}
+          totalMs={room.totalMs}
+          progressPct={room.progressPct}
+          myVote={room.myVote}
+          likes={likes}
+          dislikes={dislikes}
+          provider={() => room.state()?.provider}
+          onVote={sendVote}
+        />
+      </div>
+
+      <JoinOverlay
+        visible={() => !session()?.clientId}
+        current={current}
+        inputRef={(el) => { nameRef = el; }}
+        nameInput={nameInput}
+        onNameInput={setNameInput}
+        onJoin={joinRoom}
+      />
 
       <div
         class={`toast${toast().visible ? ' show' : ''}${toast().ok ? ' ok' : ''}`}
