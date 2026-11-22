@@ -13,12 +13,25 @@
   height: 164px;
   flex-shrink: 0;
 }
+.stage-cover-glow {
+  position: absolute;
+  inset: 10px;
+  border-radius: var(--r-lg);
+  background-size: cover;
+  background-position: center;
+  filter: blur(36px) saturate(1.7);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
 .stage-cover {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-radius: var(--r-lg);
   object-fit: cover;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 230, 236, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 230, 236, 0.12);
   display: block;
 }
 .stage-cover.placeholder {

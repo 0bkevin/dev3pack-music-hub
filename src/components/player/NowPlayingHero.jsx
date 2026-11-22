@@ -1,11 +1,23 @@
 import { Show, For } from 'solid-js';
+import { trackGradient } from '../../lib/api.js';
 import { Cover } from '../Cover.jsx';
 import { Equalizer } from '../Icons.jsx';
 
 export function NowPlayingHero(props) {
+  const glowStyle = () => {
+    const t = props.current()?.track;
+    if (!t) return undefined;
+    return t.imageUrl
+      ? { 'background-image': `url("${t.imageUrl}")` }
+      : { background: trackGradient(t) };
+  };
+
   return (
     <section class="hero-stage">
       <div class="stage-cover-wrap">
+        <Show when={props.current()?.track}>
+          <div class="stage-cover-glow" style={glowStyle()} aria-hidden="true" />
+        </Show>
         <Cover
           track={props.current()?.track}
           class="stage-cover"

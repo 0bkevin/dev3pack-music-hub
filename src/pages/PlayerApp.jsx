@@ -1,5 +1,5 @@
 import { createSignal, createMemo, onMount, onCleanup } from 'solid-js';
-import { api, loadSession, saveSession } from '../lib/api.js';
+import { api, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { NowPlayingHero } from '../components/player/NowPlayingHero.jsx';
 import { TrackBrowser } from '../components/player/TrackBrowser.jsx';
@@ -169,18 +169,22 @@ export function PlayerApp() {
     }
   }
 
+  const ambientBg = () => {
+    const t = current()?.track;
+    if (!t) return undefined;
+    return t.imageUrl
+      ? { 'background-image': `url("${t.imageUrl}")` }
+      : { background: trackGradient(t) };
+  };
+
   return (
     <>
       <div class="app-root">
         <div class="ambient-backdrop">
           <div class="ambient-fallback" />
           <div
-            class="ambient-art"
-            style={
-              current()?.track?.imageUrl
-                ? { 'background-image': `url("${current().track.imageUrl}")` }
-                : undefined
-            }
+            class={`ambient-art${current() ? ' active' : ''}`}
+            style={ambientBg()}
           />
         </div>
 
