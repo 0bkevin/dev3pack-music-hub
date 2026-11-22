@@ -6,6 +6,7 @@ import { TrackBrowser } from '../components/player/TrackBrowser.jsx';
 import { QueueRail } from '../components/player/QueueRail.jsx';
 import { PlayerBar } from '../components/player/PlayerBar.jsx';
 import { JoinOverlay } from '../components/player/JoinOverlay.jsx';
+import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const MOODS = [
   'Bad Bunny', 'Daft Punk', 'The Weeknd', 'Karol G',
@@ -127,7 +128,7 @@ export function PlayerApp() {
     const s = session();
     if (!s?.clientId) {
       openJoinOverlay();
-      return;
+      return false;
     }
     setPendingIds((prev) => new Set([...prev, track.id]));
     try {
@@ -136,8 +137,10 @@ export function PlayerApp() {
         body: JSON.stringify({ clientId: s.clientId, track }),
       });
       showToast(`«${track.name}» agregada a la cola`, true);
+      return true;
     } catch (err) {
       showToast(err.message);
+      return false;
     } finally {
       setPendingIds((prev) => {
         const next = new Set(prev);
@@ -243,6 +246,13 @@ export function PlayerApp() {
           onVote={sendVote}
         />
       </div>
+
+      <CommandSearch
+        queue={queue}
+        currentTrackId={() => current()?.track?.id}
+        onEnqueue={enqueueTrack}
+        onNotify={showToast}
+      />
 
       <JoinOverlay
         visible={() => !session()?.clientId}

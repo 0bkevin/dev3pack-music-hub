@@ -1,10 +1,11 @@
 import { createSignal, createEffect, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
-import { fmtMs, hashCode } from '../lib/api.js';
+import { api, fmtMs, hashCode, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { createSpotifyHostPlayer } from '../lib/spotifyPlayer.js';
 import { Cover } from '../components/Cover.jsx';
 import { Equalizer } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
+import { CommandSearch } from '../components/CommandSearch.jsx';
 
 const SPOTIFY_ERROR_MESSAGES = {
   auth_denied: 'Autenticación con Spotify cancelada.',
@@ -108,6 +109,42 @@ export function ScreenApp() {
   });
 
   const skipDotIndexes = createMemo(() => Array.from({ length: dislikesToSkip() }, (_, i) => i));
+
+  async function ensureScreenSession() {
+    let s = loadSession();
+    if (s?.clientId) return s;
+    s = await api('/api/join', { method: 'POST', body: JSON.stringify({}) });
+    saveSession(s);
+    return s;
+  }
+
+  async function enqueueFromScreen(track) {
+    try {
+      let s = await ensureScreenSession();
+      try {
+        await api('/api/queue', {
+          method: 'POST',
+          body: JSON.stringify({ clientId: s.clientId, track }),
+        });
+      } catch (err) {
+        if (err.message.includes('entrar primero')) {
+          saveSession(null);
+          s = await ensureScreenSession();
+          await api('/api/queue', {
+            method: 'POST',
+            body: JSON.stringify({ clientId: s.clientId, track }),
+          });
+        } else {
+          throw err;
+        }
+      }
+      showBanner(`+ «${track.name}» agregada a la cola`, 2600);
+      return true;
+    } catch (err) {
+      showBanner(err.message, 3200);
+      return false;
+    }
+  }
 
   return (
     <div class={`tv-screen${current() ? ' playing' : ''}`} id="tv-screen">
@@ -236,6 +273,12 @@ export function ScreenApp() {
           )}
         </For>
       </div>
+      <CommandSearch
+        queue={queue}
+        currentTrackId={() => current()?.track?.id}
+        onEnqueue={enqueueFromScreen}
+        onNotify={(msg) => showBanner(msg, 3200)}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Show, For } from 'solid-js';
 import { fmtMs } from '../../lib/api.js';
+import { shortcutHint } from '../../lib/shortcuts.js';
 import { Cover } from '../Cover.jsx';
 import { SearchIcon } from '../Icons.jsx';
 
@@ -20,7 +21,10 @@ export function TrackBrowser(props) {
             placeholder="Buscar canción, artista o álbum…"
             autocomplete="off"
           />
-          <Show when={props.isManualSearch()}>
+          <Show
+            when={props.isManualSearch()}
+            fallback={<kbd class="search-kbd">{shortcutHint()}</kbd>}
+          >
             <button
               class="search-clear"
               id="search-clear"
