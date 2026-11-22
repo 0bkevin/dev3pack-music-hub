@@ -454,7 +454,7 @@ export function PlayerApp() {
               <div class="people-row">
                 <For each={listeners()}>
                   {(c) => (
-                    <span class={`person-chip${session()?.clientId === c.id ? ' me' : ''}`}>
+                    <span class={`person-chip${session()?.publicId === c.id ? ' me' : ''}`}>
                       {c.name}
                     </span>
                   )}

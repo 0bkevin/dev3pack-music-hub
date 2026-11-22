@@ -19,6 +19,7 @@ export function ScreenApp() {
   let lastSeenTrackId = null;
   let reactionSeq = 0;
   let wavePulse = 0;
+  const reactionTimers = new Set();
 
   function showBanner(text, ms = 3200) {
     setBanner({ text, visible: true });
@@ -37,10 +38,12 @@ export function ScreenApp() {
       top: `${62 + Math.random() * 12}%`,
       driftX: `${(Math.random() - 0.5) * 44}px`,
     };
-    setReactions((prev) => [...prev, item]);
-    setTimeout(() => {
+    setReactions((prev) => [...prev.slice(-15), item]);
+    const t = setTimeout(() => {
+      reactionTimers.delete(t);
       setReactions((prev) => prev.filter((r) => r.id !== id));
     }, 2650);
+    reactionTimers.add(t);
   }
 
   const room = createRoom({
@@ -142,6 +145,8 @@ export function ScreenApp() {
     onCleanup(() => {
       window.removeEventListener('spotify-sdk-ready', onSdk);
       clearTimeout(bannerTimer);
+      for (const t of reactionTimers) clearTimeout(t);
+      reactionTimers.clear();
       spPlayer?.disconnect?.();
     });
   });

@@ -16,12 +16,17 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
     let ws = null;
     let reconnectTimer = null;
     let disposed = false;
+    let attempt = 0;
 
     const connect = () => {
       if (disposed) return;
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       const query = id ? `?client=${encodeURIComponent(id)}` : '';
       ws = new WebSocket(`${proto}://${location.host}/ws${query}`);
+
+      ws.onopen = () => {
+        attempt = 0;
+      };
 
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
@@ -50,7 +55,11 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
       };
 
       ws.onclose = () => {
-        if (!disposed) reconnectTimer = setTimeout(connect, 2500);
+        if (disposed) return;
+        // Exponential backoff with jitter (1.5s -> 15s) to prevent reconnect storms
+        const base = Math.min(15_000, 1500 * Math.pow(1.6, attempt++));
+        const delay = Math.round(base + Math.random() * 600);
+        reconnectTimer = setTimeout(connect, delay);
       };
     };
 
