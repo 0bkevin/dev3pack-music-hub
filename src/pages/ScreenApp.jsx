@@ -149,7 +149,7 @@ export function ScreenApp() {
                 <For each={queue()}>
                   {(item) => (
                     <div class="tv-q-item">
-                      <Cover track={item.track} class="q-art" />
+                      <Cover track={item.track} />
                       <div class="tv-q-meta">
                         <div class="tv-q-name">{item.track.name}</div>
                         <div class="tv-q-artist">{item.track.artists}</div>

@@ -56,6 +56,7 @@ export function PlayerApp() {
     const prevId = session()?.clientId;
     saveSession(null);
     setSession(null);
+    setNameInput('');
     setQueueOpen(false);
     room.setMyVote(0);
     if (prevId) {

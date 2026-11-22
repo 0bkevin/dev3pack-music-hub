@@ -130,7 +130,6 @@
   -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 74%, transparent 100%);
   padding-bottom: 22px;
 }
-.tv-queue-list:empty { display: none; }
 
 .tv-q-item {
   display: grid;

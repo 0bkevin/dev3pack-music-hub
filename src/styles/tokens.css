@@ -2,11 +2,8 @@
 
 :root {
   --bg: #12060a;
-  --bg-elevated: #1c0a10;
   --wine: #551727;
   --wine-mid: #7a2138;
-  --wine-bright: #d94b6e;
-  --wine-glow: rgba(217, 75, 110, 0.16);
 
   --surface: rgba(255, 240, 244, 0.04);
   --surface-hover: rgba(255, 240, 244, 0.08);
@@ -31,7 +28,6 @@
   --r-xl: 12px;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -66,8 +62,7 @@ a:focus-visible {
 .pb-vote:active,
 .add-btn:not(:disabled):active,
 .mood-pill:active,
-.user-btn:active,
-.tv-link:active,
+.person-chip.me:active,
 .queue-toggle-btn:active,
 .btn-primary:active,
 .btn-subtle:active,

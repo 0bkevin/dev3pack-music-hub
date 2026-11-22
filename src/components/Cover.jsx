@@ -3,12 +3,13 @@ import { trackGradient } from '../lib/api.js';
 import { MusicNoteIcon } from './Icons.jsx';
 
 export function Cover(props) {
+  const cls = () => props.class || '';
   return (
     <Show
       when={props.track?.imageUrl}
       fallback={
         <div
-          class={`${props.class || 'track-art'} cover-ph${props.placeholder ? ' placeholder' : ''}`}
+          class={`${cls() ? `${cls()} ` : ''}cover-ph${props.placeholder ? ' placeholder' : ''}`}
           style={props.track ? { background: trackGradient(props.track) } : undefined}
         >
           <Show when={props.showIcon}>
@@ -18,7 +19,7 @@ export function Cover(props) {
       }
     >
       <img
-        class={props.class || 'track-art'}
+        class={cls() || undefined}
         src={props.track.imageUrl}
         alt=""
         loading="lazy"

@@ -36,7 +36,7 @@ export function QueueRail(props) {
             <For each={props.queue()}>
               {(item, i) => (
                 <div class={`q-item${i() === 0 ? ' next-up' : ''}`}>
-                  <Cover track={item.track} class="q-art" />
+                  <Cover track={item.track} />
                   <div class="q-info">
                     <Show when={i() === 0}>
                       <div class="next-tag">Siguiente</div>

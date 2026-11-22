@@ -17,7 +17,20 @@ export function createSpotifyHostPlayer({ host, onError }) {
   let initialized = false;
 
   createEffect(() => {
-    if (initialized || !sdkReady() || !window.Spotify || !host()?.connected) return;
+    const connected = Boolean(host()?.connected);
+    if (!connected) {
+      if (player) {
+        player.disconnect();
+        player = null;
+      }
+      initialized = false;
+      setDeviceId(null);
+      setUnlocked(false);
+      setPaused(false);
+      return;
+    }
+
+    if (initialized || !sdkReady() || !window.Spotify) return;
     initialized = true;
 
     player = new window.Spotify.Player({
@@ -25,6 +38,7 @@ export function createSpotifyHostPlayer({ host, onError }) {
       getOAuthToken: async (cb) => {
         const token = await fetchHostToken();
         if (token) cb(token);
+        else onError?.('Sesión de Spotify del host expirada. Reconecta desde este dispositivo.', 5000);
       },
       volume: 0.85,
     });

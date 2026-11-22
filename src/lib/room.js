@@ -3,7 +3,6 @@ import { createSignal, createEffect, onCleanup } from 'solid-js';
 export function createRoom({ clientId = () => null, onSessionExpired, onReaction } = {}) {
   const [state, setState] = createSignal(null);
   const [myVote, setMyVote] = createSignal(0);
-  const [votesUsed, setVotesUsed] = createSignal(0);
   const [now, setNow] = createSignal(Date.now());
 
   let lastTrackId = null;
@@ -37,7 +36,6 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
         }
         if (msg.type === 'you') {
           setMyVote(msg.myVote || 0);
-          setVotesUsed(msg.votesUsed || 0);
           return;
         }
         if (msg.type === 'reaction') {
@@ -48,7 +46,6 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
           const nextId = msg.current?.track?.id || null;
           if (nextId !== lastTrackId) {
             setMyVote(0);
-            setVotesUsed(0);
             lastTrackId = nextId;
           }
           setState(msg);
@@ -97,8 +94,6 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
     state,
     myVote,
     setMyVote,
-    votesUsed,
-    setVotesUsed,
     elapsedMs,
     totalMs,
     progressPct,
