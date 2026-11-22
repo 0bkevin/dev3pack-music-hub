@@ -2,33 +2,37 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { MusicDB } from '../server/db.js';
 import { Room } from '../server/state.js';
-import { ALLOWED_EMOJIS, sanitizeEmoji } from '../server/sanitize.js';
+import { PREDEFINED_EMOJIS, sanitizeEmoji } from '../server/sanitize.js';
 
 function makeTrack(id, name) {
   return { id, name, artists: 'Artist', album: 'Album', durationMs: 180_000 };
 }
 
 describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () => {
-  it('enforces emoji allowlist and assigns predefined random emoji for anonymous users', () => {
+  it('accepts any valid single Unicode emoji, rejects non-emoji/XSS, and assigns predefined random emoji for anonymous users', () => {
     assert.equal(sanitizeEmoji('🔥'), '🔥');
-    assert.ok(ALLOWED_EMOJIS.includes(sanitizeEmoji('<script>alert(1)</script>')));
-    assert.ok(ALLOWED_EMOJIS.includes(sanitizeEmoji('💩')));
+    assert.equal(sanitizeEmoji('🦖'), '🦖');
+    assert.equal(sanitizeEmoji('🌮'), '🌮');
+    assert.equal(sanitizeEmoji('👩‍🚀'), '👩‍🚀');
+    assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('<script>alert(1)</script>')));
+    assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('hello')));
+    assert.ok(PREDEFINED_EMOJIS.includes(sanitizeEmoji('🔥🚀')));
 
     const db = new MusicDB(':memory:');
     const room = new Room(() => {}, db);
 
-    const named = room.join('Kevin', '🚀', '203.0.113.10');
-    assert.equal(named.emoji, '🚀');
+    const named = room.join('Kevin', '🦖', '203.0.113.10');
+    assert.equal(named.emoji, '🦖');
     assert.equal(named.anonymous, false);
 
-    const anon = room.join(undefined, '🚀', '203.0.113.11');
+    const anon = room.join(undefined, '🦖', '203.0.113.11');
     assert.equal(anon.anonymous, true);
-    assert.ok(ALLOWED_EMOJIS.includes(anon.emoji));
+    assert.ok(PREDEFINED_EMOJIS.includes(anon.emoji));
 
     // Verify IP is stored pseudonymized (never raw IP in DB or public APIs)
     const row = db.db.prepare('SELECT id, name, emoji, ip_hash FROM users WHERE id = ?').get(named.publicId);
     assert.equal(row.name, 'Kevin');
-    assert.equal(row.emoji, '🚀');
+    assert.equal(row.emoji, '🦖');
     assert.ok(row.ip_hash && !row.ip_hash.includes('203.0.113.10'));
 
     clearTimeout(room.endTimer);

@@ -1,21 +1,33 @@
 export const MIN_DURATION_MS = 15_000;
 export const MAX_DURATION_MS = 10 * 60_000;
 
-export const ALLOWED_EMOJIS = [
+export const PREDEFINED_EMOJIS = [
   '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',
   '🪩', '🌊', '💜', '🎵', '🥁', '🌙', '🎤', '✨',
 ];
-const EMOJI_SET = new Set(ALLOWED_EMOJIS);
+
+const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
 export function randomEmoji() {
-  return ALLOWED_EMOJIS[Math.floor(Math.random() * ALLOWED_EMOJIS.length)];
+  return PREDEFINED_EMOJIS[Math.floor(Math.random() * PREDEFINED_EMOJIS.length)];
 }
 
+/**
+ * Accepts any single valid Unicode emoji grapheme (including ZWJ / variation selectors),
+ * rejecting plain text, HTML, or multi-emoji strings. Falls back to a predefined random emoji.
+ */
 export function sanitizeEmoji(raw) {
-  if (typeof raw === 'string' && EMOJI_SET.has(raw.trim())) {
-    return raw.trim();
+  if (typeof raw !== 'string') return randomEmoji();
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 24 || /[<>"'&`\\/\s\r\n\t]/.test(trimmed)) {
+    return randomEmoji();
   }
-  return randomEmoji();
+  const segments = [...graphemeSegmenter.segment(trimmed)].map((s) => s.segment);
+  if (segments.length !== 1) return randomEmoji();
+  const seg = segments[0];
+  if (!EMOJI_RE.test(seg)) return randomEmoji();
+  return seg;
 }
 
 const ALLOWED_IMAGE_HOSTS = new Set([

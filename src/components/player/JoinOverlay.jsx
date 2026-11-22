@@ -1,10 +1,9 @@
-import { Show, For } from 'solid-js';
+import { Show } from 'solid-js';
+import { DEFAULT_EMOJIS } from '../../lib/emojis.js';
 import { Equalizer, MusicNoteIcon } from '../Icons.jsx';
+import { EmojiPickerDropdown } from './EmojiPickerDropdown.jsx';
 
-export const USER_EMOJIS = [
-  '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',
-  '🪩', '🌊', '💜', '🎵', '🥁', '🌙', '🎤', '✨',
-];
+export const USER_EMOJIS = DEFAULT_EMOJIS;
 
 export function JoinOverlay(props) {
   return (
@@ -21,7 +20,7 @@ export function JoinOverlay(props) {
               </Show>
             </div>
             <h1>Dev3pack Music</h1>
-            <p>Elige un emoji y tu nombre para pedir canciones, o entra como anónimo.</p>
+            <p>Elige tu emoji y tu nombre para pedir canciones, o entra como anónimo.</p>
           </div>
 
           <Show when={props.current()}>
@@ -33,37 +32,27 @@ export function JoinOverlay(props) {
             </div>
           </Show>
 
-          <div class="emoji-picker" role="radiogroup" aria-label="Elige tu emoji">
-            <For each={USER_EMOJIS}>
-              {(em) => (
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={props.selectedEmoji() === em}
-                  class={`emoji-opt${props.selectedEmoji() === em ? ' active' : ''}`}
-                  onClick={() => props.onSelectEmoji(em)}
-                >
-                  {em}
-                </button>
-              )}
-            </For>
+          <div class="join-identity-row">
+            <EmojiPickerDropdown
+              value={props.selectedEmoji}
+              onSelect={props.onSelectEmoji}
+            />
+            <input
+              ref={props.inputRef}
+              class="join-input"
+              id="name-input"
+              maxLength={24}
+              value={props.nameInput()}
+              onInput={(e) => props.onNameInput(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  props.onJoin(props.nameInput() || undefined, props.selectedEmoji());
+                }
+              }}
+              placeholder="Tu nombre o alias"
+              autocomplete="off"
+            />
           </div>
-
-          <input
-            ref={props.inputRef}
-            class="join-input"
-            id="name-input"
-            maxLength={24}
-            value={props.nameInput()}
-            onInput={(e) => props.onNameInput(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                props.onJoin(props.nameInput() || undefined, props.selectedEmoji());
-              }
-            }}
-            placeholder="Tu nombre o alias"
-            autocomplete="off"
-          />
 
           <div class="join-btns">
             <button
