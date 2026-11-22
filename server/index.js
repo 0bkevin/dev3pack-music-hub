@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PORT, DB_PATH, TRUST_PROXY, HOST_ADMIN_SECRET } from './config.js';
+import { PORT, DB_PATH, DB_RETENTION_MS, TRUST_PROXY, HOST_ADMIN_SECRET } from './config.js';
 import { MusicDB } from './db.js';
 import { spotifyEnabled } from './spotify.js';
 import { Room } from './state.js';
@@ -27,6 +27,7 @@ app.use('/api', (_req, res, next) => {
 app.use(express.static(DIST_DIR));
 
 const db = new MusicDB(DB_PATH);
+db.pruneRetention(DB_RETENTION_MS);
 const server = createServer(app);
 const wsHub = createWsHub(server);
 const room = new Room(wsHub.broadcast, db);
@@ -57,9 +58,18 @@ const maintenanceTimer = setInterval(() => {
 }, 15_000);
 maintenanceTimer.unref();
 
+const retentionTimer = setInterval(() => {
+  const purged = db.pruneRetention(DB_RETENTION_MS);
+  if (purged.deletedHistory || purged.deletedUsers) {
+    auditLog('db.retention_purged', purged);
+  }
+}, 60 * 60_000);
+retentionTimer.unref();
+
 function shutdown(signal) {
   auditLog('server.shutdown', { signal });
   clearInterval(maintenanceTimer);
+  clearInterval(retentionTimer);
   clearTimeout(room.endTimer);
   wsHub.closeAll();
   server.close(() => {

@@ -2,17 +2,25 @@ import { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { IP_HASH_SALT } from './config.js';
 
 export class MusicDB {
   constructor(dbPath = './data/music-hub.sqlite') {
     if (dbPath !== ':memory:') {
-      fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+      const resolved = path.resolve(dbPath);
+      const dir = path.dirname(resolved);
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      try { fs.chmodSync(dir, 0o700); } catch { /* ignore on non-POSIX */ }
     }
     this.db = new DatabaseSync(dbPath);
+    if (dbPath !== ':memory:') {
+      try { fs.chmodSync(path.resolve(dbPath), 0o600); } catch { /* ignore */ }
+    }
     this.db.exec('PRAGMA journal_mode = WAL;');
     this.db.exec('PRAGMA foreign_keys = ON;');
+    this.db.exec('PRAGMA busy_timeout = 3000;');
     this.initSchema();
-    this.ipSalt = this.ensureSalt();
+    this.ipSalt = IP_HASH_SALT || this.ensureSalt();
   }
 
   initSchema() {
@@ -291,6 +299,22 @@ export class MusicDB {
       totalTracks: Number(row?.totalTracks || 0),
       totalRequesters: Number(row?.totalRequesters || 0),
     };
+  }
+
+  pruneRetention(retentionMs) {
+    const cutoff = Date.now() - retentionMs;
+    const h = this.db.prepare('DELETE FROM track_history WHERE requested_at < ?').run(cutoff);
+    const u = this.db
+      .prepare(`
+        DELETE FROM users
+        WHERE last_seen_at < ?
+          AND id NOT IN (SELECT DISTINCT user_id FROM track_history WHERE user_id IS NOT NULL)
+      `)
+      .run(cutoff);
+    try {
+      this.db.exec('PRAGMA wal_checkpoint(PASSIVE);');
+    } catch { /* ignore */ }
+    return { deletedHistory: Number(h.changes || 0), deletedUsers: Number(u.changes || 0) };
   }
 
   close() {

@@ -10,25 +10,32 @@ export const PREDEFINED_EMOJIS = [
 
 const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
+// Reject combining marks, tag characters (U+E0000-E007F), and format chars other than ZWJ (U+200D) / VS16 (U+FE0F)
+const DISALLOWED_EMOJI_CP = /[\u{E0000}-\u{E007F}\p{Mark}]/u;
 
 export function randomEmoji() {
   return PREDEFINED_EMOJIS[Math.floor(Math.random() * PREDEFINED_EMOJIS.length)];
 }
 
 /**
- * Accepts any single valid Unicode emoji grapheme (including ZWJ / variation selectors),
- * rejecting plain text, HTML, or multi-emoji strings. Falls back to a predefined random emoji.
+ * Accepts any single valid Unicode emoji grapheme (including standard ZWJ sequences),
+ * rejecting plain text, HTML, combining-mark graffiti, tag characters, or multi-emoji strings.
  */
 export function sanitizeEmoji(raw) {
   if (typeof raw !== 'string') return randomEmoji();
   const trimmed = raw.trim();
-  if (!trimmed || trimmed.length > 24 || /[<>"'&`\\/\s\r\n\t]/.test(trimmed)) {
+  if (!trimmed || trimmed.length > 14 || /[<>"'&`\\/\s\r\n\t]/.test(trimmed)) {
     return randomEmoji();
   }
   const segments = [...graphemeSegmenter.segment(trimmed)].map((s) => s.segment);
   if (segments.length !== 1) return randomEmoji();
   const seg = segments[0];
   if (!EMOJI_RE.test(seg)) return randomEmoji();
+  // Strip allowed VS16/ZWJ before checking for disallowed combining/tag/format code points
+  const stripped = seg.replace(/[\uFE0F\u200D]/g, '');
+  if (DISALLOWED_EMOJI_CP.test(stripped) || /\p{Cf}/u.test(stripped)) {
+    return randomEmoji();
+  }
   return seg;
 }
 

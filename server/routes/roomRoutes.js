@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { JOIN_RATE_MAX, SEARCH_RATE_MAX, MUTATE_RATE_MAX } from '../config.js';
 import { searchTracks, providerMode } from '../spotify.js';
-import { makeIpLimiter } from '../security.js';
+import { auditLog, hashIp, makeIpLimiter } from '../security.js';
 
 export function createRoomRouter(room, wsHub) {
   const router = Router();
@@ -14,6 +14,7 @@ export function createRoomRouter(room, wsHub) {
     const ip = req.ip || req.socket?.remoteAddress || '';
     const client = room.join(req.body?.name, req.body?.emoji, ip);
     if (client.error) return res.status(503).json(client);
+    auditLog('room.join', { ipHash: hashIp(ip), publicId: client.publicId, anonymous: client.anonymous });
     res.json({
       clientId: client.id,
       publicId: client.publicId,
@@ -26,8 +27,10 @@ export function createRoomRouter(room, wsHub) {
   router.post('/leave', leaveLimiter, (req, res) => {
     const { clientId } = req.body || {};
     if (typeof clientId === 'string' && room.clients.has(clientId)) {
+      const publicId = room.clients.get(clientId)?.publicId;
       wsHub.kickClientSockets(clientId);
       room.leave(clientId);
+      auditLog('room.leave', { ipHash: hashIp(req.ip), publicId });
     }
     res.json({ ok: true });
   });
@@ -47,6 +50,11 @@ export function createRoomRouter(room, wsHub) {
     const { clientId, track } = req.body || {};
     const result = room.enqueue(clientId, track);
     if (result.error) return res.status(400).json(result);
+    auditLog('queue.enqueue', {
+      ipHash: hashIp(req.ip),
+      publicId: room.clients.get(clientId)?.publicId,
+      trackId: track?.id,
+    });
     res.json(result);
   });
 
@@ -54,6 +62,11 @@ export function createRoomRouter(room, wsHub) {
     const { clientId, qid } = req.body || {};
     const result = room.cancelQueued(clientId, qid);
     if (result.error) return res.status(400).json(result);
+    auditLog('queue.cancel', {
+      ipHash: hashIp(req.ip),
+      publicId: room.clients.get(clientId)?.publicId,
+      qid,
+    });
     res.json(result);
   });
 
