@@ -18,6 +18,7 @@ const MOODS = [
 export function PlayerApp() {
   const [session, setSession] = createSignal(loadSession());
   const [nameInput, setNameInput] = createSignal('');
+  const [joinError, setJoinError] = createSignal('');
   const [selectedEmoji, setSelectedEmoji] = createSignal(
     USER_EMOJIS[Math.floor(Math.random() * USER_EMOJIS.length)]
   );
@@ -38,6 +39,7 @@ export function PlayerApp() {
   });
 
   async function joinRoom(name, emoji, silent = false) {
+    setJoinError('');
     try {
       const data = await api('/api/join', {
         method: 'POST',
@@ -52,7 +54,8 @@ export function PlayerApp() {
         );
       }
     } catch (err) {
-      toast.error('No se pudo entrar a la sala', err.message);
+      setJoinError(err.message);
+      if (!silent) toast.error('Nombre no disponible', err.message);
     }
   }
 
@@ -61,6 +64,7 @@ export function PlayerApp() {
     saveSession(null);
     setSession(null);
     setNameInput('');
+    setJoinError('');
     setQueueOpen(false);
     room.setMyVote(0);
     if (prevId) {
@@ -72,8 +76,8 @@ export function PlayerApp() {
   const room = createRoom({
     clientId: () => session()?.clientId || null,
     onSessionExpired: () => {
-      const s = session();
-      if (s?.name) joinRoom(s.name, s.emoji, true);
+      saveSession(null);
+      setSession(null);
     },
   });
 
@@ -296,7 +300,11 @@ export function PlayerApp() {
         current={current}
         inputRef={(el) => { nameRef = el; }}
         nameInput={nameInput}
-        onNameInput={setNameInput}
+        onNameInput={(v) => {
+          setNameInput(v);
+          if (joinError()) setJoinError('');
+        }}
+        error={joinError}
         selectedEmoji={selectedEmoji}
         onSelectEmoji={setSelectedEmoji}
         onJoin={joinRoom}

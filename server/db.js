@@ -64,6 +64,7 @@ export class MusicDB {
       CREATE INDEX IF NOT EXISTS idx_history_user ON track_history(user_id, requested_at DESC);
       CREATE INDEX IF NOT EXISTS idx_history_track ON track_history(track_id, played_at DESC);
       CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_hash);
+      CREATE INDEX IF NOT EXISTS idx_users_name_lower ON users(LOWER(name));
     `);
   }
 
@@ -81,6 +82,14 @@ export class MusicDB {
       .update(`${this.ipSalt}:${ip || 'unknown'}`)
       .digest('hex')
       .slice(0, 24);
+  }
+
+  isNameTaken(name) {
+    if (!name || typeof name !== 'string') return false;
+    const row = this.db
+      .prepare('SELECT 1 FROM users WHERE LOWER(name) = LOWER(?) AND anonymous = 0 LIMIT 1')
+      .get(name.trim());
+    return Boolean(row);
   }
 
   recordUser({ publicId, name, emoji, anonymous, ip }) {

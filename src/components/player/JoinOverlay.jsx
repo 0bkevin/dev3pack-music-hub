@@ -38,7 +38,7 @@ export function JoinOverlay(props) {
             />
             <input
               ref={props.inputRef}
-              class="join-input"
+              class={`join-input${props.error?.() ? ' has-error' : ''}`}
               id="name-input"
               maxLength={24}
               value={props.nameInput()}
@@ -48,10 +48,17 @@ export function JoinOverlay(props) {
                   props.onJoin(props.nameInput() || undefined, props.selectedEmoji());
                 }
               }}
-              placeholder="Tu nombre o alias"
+              placeholder="Ej. Kevin Bravo"
               autocomplete="off"
+              aria-invalid={Boolean(props.error?.())}
             />
           </div>
+
+          <Show when={props.error?.()}>
+            <p class="join-error" id="join-error" role="alert">
+              {props.error()}
+            </p>
+          </Show>
 
           <div class="join-btns">
             <button

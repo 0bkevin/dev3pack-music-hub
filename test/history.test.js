@@ -24,9 +24,22 @@ describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () =>
     const db = new MusicDB(':memory:');
     const room = new Room(() => {}, db);
 
-    const named = room.join('Kevin', '🦖', '203.0.113.10');
+    const named = room.join('Kevin Bravo', '🦖', '203.0.113.10');
+    assert.equal(named.name, 'Kevin Bravo');
     assert.equal(named.emoji, '🦖');
     assert.equal(named.anonymous, false);
+
+    // Duplicate name (case-insensitive & extra spaces) must be rejected with 409
+    const dup1 = room.join('kevin bravo', '🔥', '203.0.113.12');
+    assert.equal(dup1.status, 409);
+    assert.equal(dup1.code, 'name_taken');
+    const dup2 = room.join('  Kevin   Bravo  ', '🔥', '203.0.113.13');
+    assert.equal(dup2.status, 409);
+
+    // Even after leaving, DB still enforces uniqueness so history stays unambiguous
+    room.leave(named.id);
+    const dupAfterLeave = room.join('Kevin Bravo', '🎧', '203.0.113.14');
+    assert.equal(dupAfterLeave.status, 409);
 
     const anon = room.join(undefined, '🦖', '203.0.113.11');
     assert.equal(anon.anonymous, true);
@@ -34,7 +47,7 @@ describe('SQLite history persistence, user emojis, and Top 5 leaderboard', () =>
 
     // Verify IP is stored pseudonymized (never raw IP in DB or public APIs)
     const row = db.db.prepare('SELECT id, name, emoji, ip_hash FROM users WHERE id = ?').get(named.publicId);
-    assert.equal(row.name, 'Kevin');
+    assert.equal(row.name, 'Kevin Bravo');
     assert.equal(row.emoji, '🦖');
     assert.ok(row.ip_hash && !row.ip_hash.includes('203.0.113.10'));
 

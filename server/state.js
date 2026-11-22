@@ -74,14 +74,29 @@ export class Room {
 
   join(name, rawEmoji = null, ip = '') {
     if (this.clients.size >= MAX_CLIENTS) {
-      return { error: 'La sala alcanzó su capacidad máxima.' };
+      return { error: 'La sala alcanzó su capacidad máxima.', status: 503 };
     }
-    const id = crypto.randomBytes(24).toString('hex');
-    const publicId = crypto.randomBytes(8).toString('hex');
     const clean = typeof name === 'string'
-      ? name.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 24)
+      ? name.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 24)
       : '';
     const anon = !clean;
+
+    if (!anon) {
+      const lower = clean.toLowerCase();
+      const takenActive = [...this.clients.values()].some(
+        (c) => !c.anonymous && c.name.toLowerCase() === lower
+      );
+      if (takenActive || this.db?.isNameTaken(clean)) {
+        return {
+          error: `El nombre «${clean}» ya está en uso. Elige otro nombre o agrega tu apellido.`,
+          code: 'name_taken',
+          status: 409,
+        };
+      }
+    }
+
+    const id = crypto.randomBytes(24).toString('hex');
+    const publicId = crypto.randomBytes(8).toString('hex');
     const finalName = anon
       ? `${ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]} #${publicId.slice(0, 4)}`
       : clean;

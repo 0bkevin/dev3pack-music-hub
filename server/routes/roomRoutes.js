@@ -13,7 +13,7 @@ export function createRoomRouter(room, wsHub) {
   router.post('/join', joinLimiter, (req, res) => {
     const ip = req.ip || req.socket?.remoteAddress || '';
     const client = room.join(req.body?.name, req.body?.emoji, ip);
-    if (client.error) return res.status(503).json(client);
+    if (client.error) return res.status(client.status || 400).json({ error: client.error, code: client.code });
     auditLog('room.join', { ipHash: hashIp(ip), publicId: client.publicId, anonymous: client.anonymous });
     res.json({
       clientId: client.id,
