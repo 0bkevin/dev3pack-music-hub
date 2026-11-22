@@ -2,7 +2,7 @@ import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-j
 import { api, fmtMs, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { Cover } from '../components/Cover.jsx';
-import { Equalizer, MusicNoteIcon, SearchIcon, TvIcon } from '../components/Icons.jsx';
+import { Equalizer, MusicNoteIcon, QueueIcon, SearchIcon, TvIcon } from '../components/Icons.jsx';
 
 const MOODS = [
   'Bad Bunny', 'Daft Punk', 'The Weeknd', 'Karol G',
@@ -17,6 +17,7 @@ export function PlayerApp() {
   const [results, setResults] = createSignal([]);
   const [searching, setSearching] = createSignal(false);
   const [pendingIds, setPendingIds] = createSignal(new Set());
+  const [queueOpen, setQueueOpen] = createSignal(false);
   const [toast, setToast] = createSignal({ msg: '', ok: false, visible: false });
 
   let toastTimer = null;
@@ -218,6 +219,17 @@ export function PlayerApp() {
               </div>
 
               <div class="topbar-actions">
+                <button
+                  class="queue-toggle-btn"
+                  id="queue-toggle-btn"
+                  type="button"
+                  aria-label="Ver cola"
+                  onClick={() => setQueueOpen((v) => !v)}
+                >
+                  <QueueIcon />
+                  <span>Cola</span>
+                  <span class="queue-toggle-count tabular">{queue().length}</span>
+                </button>
                 <Show when={session()?.name}>
                   <button
                     class="user-btn"
@@ -229,12 +241,12 @@ export function PlayerApp() {
                     <span class="user-avatar">
                       {session().name.trim()[0]?.toUpperCase() || '?'}
                     </span>
-                    <span>{session().name}</span>
+                    <span class="user-btn-name">{session().name}</span>
                   </button>
                 </Show>
                 <a class="tv-link" href="/screen" target="_blank" rel="noopener">
                   <TvIcon />
-                  <span>Modo TV</span>
+                  <span class="tv-link-label">Modo TV</span>
                 </a>
               </div>
             </header>
@@ -385,10 +397,24 @@ export function PlayerApp() {
             </section>
           </main>
 
-          <aside class="queue-rail">
+          <Show when={queueOpen()}>
+            <div class="drawer-backdrop" onClick={() => setQueueOpen(false)} />
+          </Show>
+
+          <aside class={`queue-rail${queueOpen() ? ' open' : ''}`} id="queue-rail">
             <div class="rail-head">
               <h2 class="rail-title">A continuación</h2>
-              <span class="rail-badge">{queue().length}</span>
+              <div class="rail-head-right">
+                <span class="rail-badge">{queue().length}</span>
+                <button
+                  class="rail-close-btn"
+                  type="button"
+                  aria-label="Cerrar cola"
+                  onClick={() => setQueueOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <div class="rail-scroll">
