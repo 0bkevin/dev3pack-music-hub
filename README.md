@@ -47,8 +47,10 @@ All tunables live in [`.env.example`](.env.example). Defaults:
 
 - **Net voting**: `👍` cancels `👎` and vice versa (`score = likes - dislikes`). Tracks skip at `DISLIKES_TO_SKIP=5` net dislikes.
 - **Vote limit**: `MAX_VOTES_PER_TRACK=2` actions per person per song.
-- **Queue limits**: `ENQUEUE_MAX_PER_WINDOW=3` songs per `ENQUEUE_WINDOW_MINUTES=10`, `REPLAY_COOLDOWN_MINUTES=30`, `MAX_QUEUE_SIZE=50`.
+- **Fair queue**: round-robin interleaving per participant; participants can cancel their own queued tracks and recover their slot.
+- **Queue limits**: `ENQUEUE_MAX_PER_WINDOW=3` songs per `ENQUEUE_WINDOW_MINUTES=10`, `MAX_TRACK_MINUTES=7`, `REPLAY_COOLDOWN_MINUTES=30`.
 - **Auto-shuffle**: empty queue picks a random Spotify track outside the replay cooldown.
+- **History & SQLite**: `/history` shows the Top 3 podium, full playback history, and per-participant accordion backed by `node:sqlite` (`DB_PATH`).
 - **Health check**: `GET /healthz`.
 
 ## Deployment

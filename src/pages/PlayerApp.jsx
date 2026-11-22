@@ -152,6 +152,20 @@ export function PlayerApp() {
     }
   }
 
+  async function cancelQueuedTrack(item) {
+    const s = session();
+    if (!s?.clientId || !item?.qid) return;
+    try {
+      await api('/api/queue/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ clientId: s.clientId, qid: item.qid }),
+      });
+      showToast(`«${item.track.name}» quitada de la cola`, true);
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
+
   async function sendVote(value) {
     const s = session();
     if (!s?.clientId) {
@@ -227,6 +241,8 @@ export function PlayerApp() {
             open={queueOpen}
             onClose={() => setQueueOpen(false)}
             queue={queue}
+            selfPublicId={() => session()?.publicId}
+            onCancel={cancelQueuedTrack}
           />
         </div>
 

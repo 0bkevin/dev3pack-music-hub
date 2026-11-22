@@ -12,6 +12,7 @@
   .track-row:hover { background: var(--surface); }
   .add-btn:not(:disabled):hover { background: var(--wine-mid); color: #fff; border-color: var(--accent); }
   .q-item:hover { background: var(--surface); }
+  .q-cancel-btn:hover { background: var(--danger-soft); border-color: rgba(255, 107, 122, 0.35); color: var(--danger); }
   .pb-vote:hover { background: var(--surface-hover); color: #fff; }
   .pb-history-link:hover { background: var(--surface-hover); border-color: var(--border-strong); color: #fff; }
   .emoji-dd-trigger:hover { background: var(--surface-hover); border-color: var(--border-strong); }

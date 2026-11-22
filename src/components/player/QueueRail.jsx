@@ -34,25 +34,39 @@ export function QueueRail(props) {
             }
           >
             <For each={props.queue()}>
-              {(item, i) => (
-                <div class={`q-item${i() === 0 ? ' next-up' : ''}`}>
-                  <Cover track={item.track} />
-                  <div class="q-info">
-                    <Show when={i() === 0}>
-                      <div class="next-tag">Siguiente</div>
-                    </Show>
-                    <div class="q-name">{item.track.name}</div>
-                    <div class="q-sub">
-                      {item.track.artists}
-                      <span class="q-sep">·</span>
-                      <span class="q-who">
-                        {item.addedByEmoji ? `${item.addedByEmoji} ` : ''}
-                        {item.addedBy}
-                      </span>
+              {(item, i) => {
+                const isMine = () => Boolean(props.selfPublicId?.() && item.userId === props.selfPublicId());
+                return (
+                  <div class={`q-item${i() === 0 ? ' next-up' : ''}`}>
+                    <Cover track={item.track} />
+                    <div class="q-info">
+                      <Show when={i() === 0}>
+                        <div class="next-tag">Siguiente</div>
+                      </Show>
+                      <div class="q-name">{item.track.name}</div>
+                      <div class="q-sub">
+                        {item.track.artists}
+                        <span class="q-sep">·</span>
+                        <span class="q-who">
+                          {item.addedByEmoji ? `${item.addedByEmoji} ` : ''}
+                          {item.addedBy}
+                        </span>
+                      </div>
                     </div>
+                    <Show when={isMine()}>
+                      <button
+                        type="button"
+                        class="q-cancel-btn"
+                        aria-label={`Quitar ${item.track.name} de la cola`}
+                        title="Quitar de la cola"
+                        onClick={() => props.onCancel?.(item)}
+                      >
+                        ×
+                      </button>
+                    </Show>
                   </div>
-                </div>
-              )}
+                );
+              }}
             </For>
           </Show>
         </div>
