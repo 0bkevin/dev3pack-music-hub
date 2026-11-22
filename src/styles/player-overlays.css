@@ -58,12 +58,13 @@
   line-height: 1;
 }
 .join-identity-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .emoji-dd-wrap {
-  position: relative;
+  position: static;
   flex-shrink: 0;
 }
 .emoji-dd-trigger {
@@ -101,7 +102,8 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: min(328px, calc(100vw - 64px));
+  right: 0;
+  width: 100%;
   background: rgba(22, 9, 13, 0.98);
   border: 1px solid rgba(255, 228, 236, 0.16);
   border-radius: var(--r-lg);
