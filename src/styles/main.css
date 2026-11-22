@@ -711,13 +711,11 @@ a:focus-visible {
   align-items: center;
   padding: 8px;
   border-radius: var(--r-sm);
-  border-left: 2px solid transparent;
   transition: background 0.12s;
 }
 .q-item:hover { background: var(--surface); }
 .q-item.next-up {
   background: rgba(85, 23, 39, 0.28);
-  border-left-color: var(--accent);
 }
 .q-item img, .q-item .cover-ph {
   width: 38px;
