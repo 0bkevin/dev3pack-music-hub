@@ -100,5 +100,5 @@ export function WavesCanvas(props) {
     });
   });
 
-  return <canvas ref={canvasRef} class="tv-waves" aria-hidden="true" />;
+  return <canvas ref={canvasRef} id="waves-canvas" class="tv-waves" aria-hidden="true" />;
 }

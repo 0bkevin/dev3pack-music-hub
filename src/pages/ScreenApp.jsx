@@ -33,8 +33,8 @@ export function ScreenApp() {
     const item = {
       id,
       vote: msg.vote,
-      left: `${10 + Math.random() * 52}%`,
-      top: `${42 + Math.random() * 28}%`,
+      left: `${14 + Math.random() * 64}%`,
+      top: `${62 + Math.random() * 12}%`,
       driftX: `${(Math.random() - 0.5) * 44}px`,
     };
     setReactions((prev) => [...prev, item]);
