@@ -487,7 +487,10 @@ export function PlayerApp() {
             <div class="pb-progress-row">
               <span class="pb-time">{fmtMs(room.elapsedMs())}</span>
               <div class="progress-track">
-                <i class="progress-fill" style={{ width: `${room.progressPct()}%` }} />
+                <i
+                  class="progress-fill"
+                  style={{ transform: `scaleX(${room.progressPct() / 100})` }}
+                />
               </div>
               <span class="pb-time end">
                 {current() ? fmtMs(room.totalMs()) : '0:00'}

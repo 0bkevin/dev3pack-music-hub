@@ -240,7 +240,7 @@ export function ScreenApp() {
             <div class="tv-progress-wrap">
               <span class="tv-time">{fmtMs(room.elapsedMs())}</span>
               <div class="tv-progress">
-                <i style={{ width: `${room.progressPct()}%` }} />
+                <i style={{ transform: `scaleX(${room.progressPct() / 100})` }} />
               </div>
               <span class="tv-time end">{fmtMs(room.totalMs())}</span>
             </div>

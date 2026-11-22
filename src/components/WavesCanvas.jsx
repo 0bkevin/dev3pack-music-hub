@@ -31,25 +31,30 @@ export function WavesCanvas(props) {
     resize();
     window.addEventListener('resize', resize);
 
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
     function draw(now) {
       ctx.clearRect(0, 0, w, h);
 
+      const reduced = motionQuery.matches;
       const target = props.targetEnergy?.() ?? 0.34;
       const baseHue = props.hue?.() ?? 344;
       const bpm = props.bpm?.() ?? 112;
-      const pulse = props.consumePulse?.() ?? 0;
+      const pulse = reduced ? 0 : (props.consumePulse?.() ?? 0);
 
-      energy += (target - energy) * 0.04;
+      energy = reduced ? 0.35 : energy + (target - energy) * 0.04;
 
       const beatHz = bpm / 60;
       const tSec = now * 0.001;
-      const beat =
-        0.55 +
-        0.28 * Math.pow(0.5 + 0.5 * Math.sin(tSec * Math.PI * 2 * beatHz), 2.4) +
-        0.17 * Math.sin(tSec * Math.PI * beatHz * 0.5 + 1.1);
+      const beat = reduced
+        ? 0.75
+        : 0.55 +
+          0.28 * Math.pow(0.5 + 0.5 * Math.sin(tSec * Math.PI * 2 * beatHz), 2.4) +
+          0.17 * Math.sin(tSec * Math.PI * beatHz * 0.5 + 1.1);
 
       const dynamic = energy * beat + pulse * 0.65;
       const step = Math.max(8, Math.floor(w / 140));
+      const tAnim = reduced ? 0 : now;
 
       for (const layer of layers) {
         const baseY = h * layer.yRatio;
@@ -72,8 +77,8 @@ export function WavesCanvas(props) {
           const envelope = Math.sin(nx * Math.PI);
           const y =
             baseY +
-            Math.sin(x * layer.freq + now * layer.speed + layer.phase) * layer.amp * dynamic * envelope +
-            Math.sin(x * layer.freq * 2.15 - now * layer.speed * 1.35 + layer.phase) * (layer.amp * 0.38) * dynamic * envelope;
+            Math.sin(x * layer.freq + tAnim * layer.speed + layer.phase) * layer.amp * dynamic * envelope +
+            Math.sin(x * layer.freq * 2.15 - tAnim * layer.speed * 1.35 + layer.phase) * (layer.amp * 0.38) * dynamic * envelope;
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -89,14 +94,23 @@ export function WavesCanvas(props) {
         ctx.fill();
       }
 
-      rafId = requestAnimationFrame(draw);
+      if (!reduced) {
+        rafId = requestAnimationFrame(draw);
+      }
     }
 
-    rafId = requestAnimationFrame(draw);
+    const startOrRender = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(draw);
+    };
+
+    startOrRender();
+    motionQuery.addEventListener('change', startOrRender);
 
     onCleanup(() => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
+      motionQuery.removeEventListener('change', startOrRender);
     });
   });
 
