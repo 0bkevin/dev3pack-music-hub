@@ -1,12 +1,11 @@
-import 'dotenv/config';
 import crypto from 'node:crypto';
-
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';
-const PORT = parseInt(process.env.PORT || '3000', 10) || 3000;
-const REDIRECT_URI =
-  process.env.SPOTIFY_REDIRECT_URI || `http://127.0.0.1:${PORT}/callback`;
-const MARKET = process.env.SPOTIFY_MARKET || 'US';
+import {
+  SPOTIFY_CLIENT_ID as CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET as CLIENT_SECRET,
+  SPOTIFY_REDIRECT_URI as REDIRECT_URI,
+  SPOTIFY_MARKET as MARKET,
+} from './config.js';
+import { searchDemoCatalog, randomDemoTrack } from './demoCatalog.js';
 
 const SCOPES = [
   'streaming',
@@ -17,12 +16,10 @@ const SCOPES = [
 
 export const spotifyEnabled = Boolean(CLIENT_ID && CLIENT_SECRET);
 
-// ---- Client Credentials token (app-level search) ----
 let appToken = null;
 let appTokenExpiresAt = 0;
 let appTokenInFlight = null;
 
-// ---- Host OAuth session (Premium account for full playback via Web Playback SDK) ----
 const host = {
   accessToken: null,
   refreshToken: null,
@@ -34,16 +31,24 @@ const host = {
 };
 let refreshInFlight = null;
 
-// Support multiple concurrent/in-flight OAuth states with TTL so one stray call can't break another
-const pendingOAuthStates = new Map(); // state -> createdAt
+const pendingOAuthStates = new Map();
 const OAUTH_STATE_TTL_MS = 10 * 60_000;
 
-// ---- Search rate-limit protection & cache (playback uses a separate priority path) ----
 const SP_WINDOW_MS = 5000;
 const SP_MAX_SEARCH_CALLS = 18;
 const spSearchCallTimes = [];
-const searchCache = new Map(); // query -> { at, tracks }
+const searchCache = new Map();
 const SEARCH_CACHE_MS = 30_000;
+
+const RANDOM_TERMS = [
+  'rock', 'pop', 'latin', 'reggaeton', 'hip hop', 'electronic', 'indie',
+  'cumbia', 'salsa', 'jazz', 'synthwave', 'house', 'punk', 'r&b',
+  'lofi', 'disco', 'techno', 'afrobeat', 'bossa nova',
+];
+
+function basicAuthHeader() {
+  return 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+}
 
 async function spSearchFetch(url, opts = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -59,10 +64,6 @@ async function spSearchFetch(url, opts = {}) {
     await new Promise((r) => setTimeout(r, wait));
   }
   throw new Error('Buscador temporalmente saturado, intenta en unos segundos.');
-}
-
-function basicAuthHeader() {
-  return 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 }
 
 async function getAppToken() {
@@ -194,8 +195,7 @@ export function verifyHostSession(token) {
   if (!token || !host.sessionToken || typeof token !== 'string') return false;
   const a = Buffer.from(token);
   const b = Buffer.from(host.sessionToken);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 export function setHostDevice(deviceId) {
@@ -242,7 +242,6 @@ export async function playTrackOnHost(track, positionMs = 0) {
   const url = new URL('https://api.spotify.com/v1/me/player/play');
   if (host.deviceId) url.searchParams.set('device_id', host.deviceId);
 
-  // Playback calls bypass the search throttle bucket so search traffic can never starve audio
   const res = await fetch(url, {
     method: 'PUT',
     headers: {
@@ -254,8 +253,7 @@ export async function playTrackOnHost(track, positionMs = 0) {
       position_ms: Math.max(0, Math.floor(positionMs)),
     }),
   });
-  if (res.status === 204 || res.ok) return { ok: true };
-  return { ok: false, status: res.status };
+  return res.status === 204 || res.ok ? { ok: true } : { ok: false, status: res.status };
 }
 
 function normalize(t) {
@@ -274,12 +272,11 @@ function normalize(t) {
 }
 
 async function getSearchToken() {
-  const hostTok = await getHostAccessToken();
-  return hostTok || getAppToken();
+  return (await getHostAccessToken()) || getAppToken();
 }
 
 export async function searchTracks(query) {
-  if (!spotifyEnabled) return demoSearch(query);
+  if (!spotifyEnabled) return searchDemoCatalog(query);
 
   const key = query.toLowerCase().trim().slice(0, 100);
   const cached = searchCache.get(key);
@@ -287,35 +284,17 @@ export async function searchTracks(query) {
 
   const access = await getSearchToken();
   const url = new URL('https://api.spotify.com/v1/search');
-  // Spotify 2026 Dev Mode caps search limit at 10
-  url.search = new URLSearchParams({
-    q: key,
-    type: 'track',
-    limit: '10',
-    market: MARKET,
-  });
+  url.search = new URLSearchParams({ q: key, type: 'track', limit: '10', market: MARKET });
   const res = await spSearchFetch(url, { headers: { Authorization: `Bearer ${access}` } });
-  if (!res.ok) {
-    throw new Error(`Error al buscar en Spotify (${res.status}).`);
-  }
-  const data = await res.json();
-  const tracks = (data.tracks?.items || []).map(normalize);
+  if (!res.ok) throw new Error(`Error al buscar en Spotify (${res.status}).`);
+  const tracks = ((await res.json()).tracks?.items || []).map(normalize);
   searchCache.set(key, { at: Date.now(), tracks });
   if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
   return tracks;
 }
 
-const RANDOM_TERMS = [
-  'rock', 'pop', 'latin', 'reggaeton', 'hip hop', 'electronic', 'indie',
-  'cumbia', 'salsa', 'jazz', 'synthwave', 'house', 'punk', 'r&b',
-  'lofi', 'disco', 'techno', 'afrobeat', 'bossa nova',
-];
-
 export async function randomTrack(excludeIds = new Set()) {
-  if (!spotifyEnabled) {
-    const pool = DEMO_CATALOG.filter((t) => !excludeIds.has(t.id));
-    return pool[Math.floor(Math.random() * pool.length)] || DEMO_CATALOG[0];
-  }
+  if (!spotifyEnabled) return randomDemoTrack(excludeIds);
   for (let attempt = 0; attempt < 6; attempt++) {
     try {
       const access = await getSearchToken();
@@ -338,32 +317,4 @@ export async function randomTrack(excludeIds = new Set()) {
     }
   }
   return null;
-}
-
-// ---- Demo catalog (only used while SPOTIFY_CLIENT_ID / SECRET are empty) ----
-
-const DEMO_CATALOG = [
-  { id: 'demo-1', name: 'Midnight City', artists: 'M83', album: 'Hurry Up, We\'re Dreaming', durationMs: 243000, hue: 260 },
-  { id: 'demo-2', name: 'Get Lucky', artists: 'Daft Punk, Pharrell Williams', album: 'Random Access Memories', durationMs: 248000, hue: 45 },
-  { id: 'demo-3', name: 'Vivir Mi Vida', artists: 'Marc Anthony', album: '3.0', durationMs: 262000, hue: 12 },
-  { id: 'demo-4', name: 'Tití Me Preguntó', artists: 'Bad Bunny', album: 'Un Verano Sin Ti', durationMs: 243000, hue: 160 },
-  { id: 'demo-5', name: 'Starboy', artists: 'The Weeknd, Daft Punk', album: 'Starboy', durationMs: 230000, hue: 300 },
-  { id: 'demo-6', name: 'Bohemian Rhapsody', artists: 'Queen', album: 'A Night at the Opera', durationMs: 354000, hue: 210 },
-  { id: 'demo-7', name: 'Levitating', artists: 'Dua Lipa', album: 'Future Nostalgia', durationMs: 203000, hue: 190 },
-  { id: 'demo-8', name: 'Provenza', artists: 'Karol G', album: 'Mañana Será Bonito', durationMs: 212000, hue: 140 },
-  { id: 'demo-9', name: 'Take On Me', artists: 'a-ha', album: 'Hunting High and Low', durationMs: 225000, hue: 200 },
-  { id: 'demo-10', name: 'Nights', artists: 'Frank Ocean', album: 'Blonde', durationMs: 307000, hue: 330 },
-  { id: 'demo-11', name: 'Gasolina', artists: 'Daddy Yankee', album: 'Barrio Fino', durationMs: 192000, hue: 25 },
-  { id: 'demo-12', name: 'Clair de Lune', artists: 'Flight Facilities', album: 'Down to Earth', durationMs: 272000, hue: 175 },
-].map((t) => ({ ...t, uri: null, imageUrl: null, spotifyUrl: null, source: 'demo' }));
-
-function demoSearch(query) {
-  const q = query.toLowerCase();
-  const hits = DEMO_CATALOG.filter(
-    (t) =>
-      t.name.toLowerCase().includes(q) ||
-      t.artists.toLowerCase().includes(q) ||
-      t.album.toLowerCase().includes(q)
-  );
-  return hits.length ? hits : DEMO_CATALOG.slice(0, 8);
 }

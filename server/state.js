@@ -1,97 +1,27 @@
-import { randomTrack, providerMode, playTrackOnHost, getPublicHostStatus } from './spotify.js';
 import crypto from 'node:crypto';
+import {
+  DISLIKES_TO_SKIP,
+  REPLAY_COOLDOWN_MS,
+  ENQUEUE_MAX,
+  ENQUEUE_WINDOW_MS,
+  MAX_VOTES_PER_TRACK,
+  MAX_QUEUE_SIZE,
+  MAX_CLIENTS,
+} from './config.js';
+import { MIN_DURATION_MS, MAX_DURATION_MS, sanitizeTrack } from './sanitize.js';
+import { randomTrack, providerMode, playTrackOnHost, getPublicHostStatus } from './spotify.js';
 
-function envInt(name, fallback, min = 1, max = 10_000) {
-  const n = parseInt(process.env[name] ?? '', 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
-
-const DISLIKES_TO_SKIP = envInt('DISLIKES_TO_SKIP', 5, 1, 100);
-const REPLAY_COOLDOWN_MS = envInt('REPLAY_COOLDOWN_MINUTES', 30, 1, 1440) * 60_000;
-const ENQUEUE_MAX = envInt('ENQUEUE_MAX_PER_WINDOW', 3, 1, 50);
-const ENQUEUE_WINDOW_MS = envInt('ENQUEUE_WINDOW_MINUTES', 10, 1, 120) * 60_000;
-const MAX_VOTES_PER_TRACK = envInt('MAX_VOTES_PER_TRACK', 2, 1, 10);
-const MAX_QUEUE_SIZE = envInt('MAX_QUEUE_SIZE', 50, 5, 200);
-const MAX_CLIENTS = envInt('MAX_CLIENTS', 250, 10, 2000);
-
-const MIN_DURATION_MS = 15_000;
-const MAX_DURATION_MS = 10 * 60_000; // 10 minutes max per track
-
-const ALLOWED_IMAGE_HOSTS = new Set([
-  'i.scdn.co',
-  'mosaic.scdn.co',
-  'image-cdn-ak.spotifycdn.com',
-  'image-cdn-fa.spotifycdn.com',
-]);
+export { sanitizeTrack };
 
 const ANON_NAMES = [
   'Anónimo Cósmico', 'Hacker Fantasma', 'Nómada Neon', 'Builder Incógnito',
   'Wanderer Solana', 'Shadow Validator', 'Miembro Misterioso', 'Agente 3030',
 ];
 
-function sanitizeImageUrl(raw) {
-  if (!raw || typeof raw !== 'string') return null;
-  if (raw.length > 512 || /[\s"'()\\<>]/.test(raw)) return null;
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== 'https:') return null;
-    if (!ALLOWED_IMAGE_HOSTS.has(u.hostname) && !u.hostname.endsWith('.scdn.co')) {
-      return null;
-    }
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
-export function sanitizeTrack(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  if (typeof raw.id !== 'string') return null;
-  const id = raw.id.trim();
-  if (!id || id.length > 64 || !/^[A-Za-z0-9:_-]+$/.test(id)) return null;
-
-  if (typeof raw.name !== 'string') return null;
-  const name = raw.name.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 140);
-  if (!name) return null;
-
-  const artists = typeof raw.artists === 'string'
-    ? raw.artists.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 140)
-    : '';
-  const album = typeof raw.album === 'string'
-    ? raw.album.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 140)
-    : '';
-
-  const rawDur = typeof raw.durationMs === 'number' && Number.isFinite(raw.durationMs)
-    ? raw.durationMs
-    : 180_000;
-  const durationMs = Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, Math.floor(rawDur)));
-
-  const uri = typeof raw.uri === 'string' && /^spotify:track:[A-Za-z0-9]{22}$/.test(raw.uri)
-    ? raw.uri
-    : null;
-
-  const hue = typeof raw.hue === 'number' && Number.isFinite(raw.hue)
-    ? ((Math.floor(raw.hue) % 360) + 360) % 360
-    : undefined;
-
-  return {
-    id,
-    uri,
-    name,
-    artists,
-    album,
-    imageUrl: sanitizeImageUrl(raw.imageUrl),
-    durationMs,
-    source: uri ? 'spotify' : 'demo',
-    ...(hue !== undefined ? { hue } : {}),
-  };
-}
-
 export class Room {
   constructor(broadcast) {
     this.broadcast = broadcast;
-    this.clients = new Map();        // clientToken -> { id (token), publicId, name, anonymous, joinedAt }
+    this.clients = new Map();        // clientToken -> { id, publicId, name, anonymous, joinedAt }
     this.queue = [];                 // [{ qid, track, addedBy }]
     this.current = null;             // { track, addedBy, startedAt, endsAt }
     this.votes = new Map();          // clientToken -> 1 | -1
@@ -144,8 +74,8 @@ export class Room {
     if (this.clients.size >= MAX_CLIENTS) {
       return { error: 'La sala alcanzó su capacidad máxima.' };
     }
-    const id = crypto.randomBytes(24).toString('hex'); // private secret token (never broadcast)
-    const publicId = crypto.randomBytes(8).toString('hex'); // public display identifier
+    const id = crypto.randomBytes(24).toString('hex');
+    const publicId = crypto.randomBytes(8).toString('hex');
     const clean = typeof name === 'string'
       ? name.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 24)
       : '';
@@ -178,7 +108,6 @@ export class Room {
 
     const track = sanitizeTrack(rawTrack);
     if (!track) return { error: 'Track inválido.' };
-
     if (this.queue.length >= MAX_QUEUE_SIZE) {
       return { error: `La cola está llena (máx. ${MAX_QUEUE_SIZE} canciones).` };
     }
@@ -189,12 +118,8 @@ export class Room {
       const mins = Math.ceil((REPLAY_COOLDOWN_MS - (now - last)) / 60000);
       return { error: `Esta canción ya sonó. Disponible de nuevo en ~${mins} min.` };
     }
-    if (this.current?.track.id === track.id) {
-      return { error: 'Esta canción está sonando ahora mismo.' };
-    }
-    if (this.queue.some((q) => q.track.id === track.id)) {
-      return { error: 'Ya está en la cola.' };
-    }
+    if (this.current?.track.id === track.id) return { error: 'Esta canción está sonando ahora mismo.' };
+    if (this.queue.some((q) => q.track.id === track.id)) return { error: 'Ya está en la cola.' };
 
     const log = (this.enqueueLog.get(clientId) || []).filter((ts) => now - ts < ENQUEUE_WINDOW_MS);
     if (log.length >= ENQUEUE_MAX) {
@@ -206,8 +131,7 @@ export class Room {
     log.push(now);
     this.enqueueLog.set(clientId, log);
 
-    const item = { qid: crypto.randomUUID(), track, addedBy: client.name };
-    this.queue.push(item);
+    this.queue.push({ qid: crypto.randomUUID(), track, addedBy: client.name });
     if (!this.current && !this.advancing) {
       this.advance().catch((err) => console.error('advance error:', err));
     } else {
@@ -228,28 +152,18 @@ export class Room {
     if (value !== 1 && value !== -1 && value !== 0) return { error: 'Voto inválido.' };
 
     const prev = this.votes.get(clientId) || 0;
-    if (prev === value) {
-      return { ok: true, ...this.clientVoteState(clientId) };
-    }
+    if (prev === value) return { ok: true, ...this.clientVoteState(clientId) };
 
     const used = this.voteActions.get(clientId) || 0;
     if (used >= MAX_VOTES_PER_TRACK) {
-      return {
-        error: `Solo puedes votar hasta ${MAX_VOTES_PER_TRACK} veces por canción.`,
-      };
+      return { error: `Solo puedes votar hasta ${MAX_VOTES_PER_TRACK} veces por canción.` };
     }
     this.voteActions.set(clientId, used + 1);
 
     if (value === 0) this.votes.delete(clientId);
     else this.votes.set(clientId, value);
 
-    if (value !== 0) {
-      this.broadcast({
-        type: 'reaction',
-        vote: value,
-        ts: Date.now(),
-      });
-    }
+    if (value !== 0) this.broadcast({ type: 'reaction', vote: value, ts: Date.now() });
 
     const stats = this.voteStats();
     const voteState = this.clientVoteState(clientId);
@@ -334,7 +248,6 @@ export class Room {
         this.advance('ended').catch((err) => console.error('advance timer error:', err));
       }, durationMs);
       this.emitState();
-
       this.syncCurrentPlayback();
     } finally {
       this.advancing = false;
@@ -358,7 +271,6 @@ export class Room {
       rawLikes: stats.rawLikes,
       rawDislikes: stats.rawDislikes,
       queue: this.queue,
-      // Broadcast ONLY opaque publicId — NEVER expose private client session tokens!
       listeners: [...this.clients.values()].map((c) => ({ id: c.publicId, name: c.name })),
       listenerCount: this.clients.size,
     };
