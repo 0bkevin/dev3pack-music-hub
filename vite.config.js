@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         screen: resolve(__dirname, 'screen.html'),
+        history: resolve(__dirname, 'history.html'),
       },
     },
   },
