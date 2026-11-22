@@ -1,13 +1,14 @@
 import { Router } from 'express';
+import { JOIN_RATE_MAX, SEARCH_RATE_MAX, MUTATE_RATE_MAX } from '../config.js';
 import { searchTracks, providerMode } from '../spotify.js';
 import { makeIpLimiter } from '../security.js';
 
 export function createRoomRouter(room, wsHub) {
   const router = Router();
-  const joinLimiter = makeIpLimiter(25, 10 * 60_000, 'join');
-  const searchLimiter = makeIpLimiter(45, 60_000, 'search');
-  const mutateLimiter = makeIpLimiter(60, 60_000, 'mutate');
-  const leaveLimiter = makeIpLimiter(20, 60_000, 'leave');
+  const joinLimiter = makeIpLimiter(JOIN_RATE_MAX, 10 * 60_000, 'join');
+  const searchLimiter = makeIpLimiter(SEARCH_RATE_MAX, 60_000, 'search');
+  const mutateLimiter = makeIpLimiter(MUTATE_RATE_MAX, 60_000, 'mutate');
+  const leaveLimiter = makeIpLimiter(60, 60_000, 'leave');
 
   router.post('/join', joinLimiter, (req, res) => {
     const ip = req.ip || req.socket?.remoteAddress || '';
@@ -45,6 +46,13 @@ export function createRoomRouter(room, wsHub) {
   router.post('/queue', mutateLimiter, (req, res) => {
     const { clientId, track } = req.body || {};
     const result = room.enqueue(clientId, track);
+    if (result.error) return res.status(400).json(result);
+    res.json(result);
+  });
+
+  router.post('/queue/cancel', mutateLimiter, (req, res) => {
+    const { clientId, qid } = req.body || {};
+    const result = room.cancelQueued(clientId, qid);
     if (result.error) return res.status(400).json(result);
     res.json(result);
   });

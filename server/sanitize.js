@@ -1,5 +1,7 @@
+import { MAX_TRACK_DURATION_MS } from './config.js';
+
 export const MIN_DURATION_MS = 15_000;
-export const MAX_DURATION_MS = 10 * 60_000;
+export const MAX_DURATION_MS = MAX_TRACK_DURATION_MS;
 
 export const PREDEFINED_EMOJIS = [
   '🎧', '🔥', '⚡', '🎸', '🎹', '🚀', '👾', '🦊',

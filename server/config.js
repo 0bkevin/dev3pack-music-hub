@@ -21,13 +21,19 @@ export const DISLIKES_TO_SKIP = envInt('DISLIKES_TO_SKIP', 5, 1, 100);
 export const REPLAY_COOLDOWN_MS = envInt('REPLAY_COOLDOWN_MINUTES', 30, 1, 1440) * 60_000;
 export const ENQUEUE_MAX = envInt('ENQUEUE_MAX_PER_WINDOW', 3, 1, 50);
 export const ENQUEUE_WINDOW_MS = envInt('ENQUEUE_WINDOW_MINUTES', 10, 1, 120) * 60_000;
+export const MAX_TRACK_MINUTES = envInt('MAX_TRACK_MINUTES', 7, 1, 60);
+export const MAX_TRACK_DURATION_MS = MAX_TRACK_MINUTES * 60_000;
 export const MAX_VOTES_PER_TRACK = envInt('MAX_VOTES_PER_TRACK', 2, 1, 10);
-export const MAX_QUEUE_SIZE = envInt('MAX_QUEUE_SIZE', 50, 5, 200);
 export const MAX_CLIENTS = envInt('MAX_CLIENTS', 250, 10, 2000);
 export const DISCONNECT_GRACE_MS = envInt('DISCONNECT_GRACE_MS', 8000, 0, 60_000);
 
+// Generous defaults for shared hackathon venue Wi-Fi (NAT)
+export const JOIN_RATE_MAX = envInt('JOIN_RATE_MAX_PER_IP', 200, 10, 5000);
+export const SEARCH_RATE_MAX = envInt('SEARCH_RATE_MAX_PER_IP', 180, 20, 5000);
+export const MUTATE_RATE_MAX = envInt('MUTATE_RATE_MAX_PER_IP', 300, 30, 5000);
+
 export const ZOMBIE_TTL_MS = 30_000;
-export const MAX_WS_PER_IP = 12;
+export const MAX_WS_PER_IP = 40;
 export const HOST_COOKIE = 'd3m_host';
 export const PREAUTH_COOKIE = 'd3m_host_init';
 export const PREAUTH_TTL_MS = 5 * 60_000;

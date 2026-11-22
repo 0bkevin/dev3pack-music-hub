@@ -4,8 +4,9 @@ import {
   REPLAY_COOLDOWN_MS,
   ENQUEUE_MAX,
   ENQUEUE_WINDOW_MS,
+  MAX_TRACK_MINUTES,
+  MAX_TRACK_DURATION_MS,
   MAX_VOTES_PER_TRACK,
-  MAX_QUEUE_SIZE,
   MAX_CLIENTS,
 } from './config.js';
 import { MIN_DURATION_MS, MAX_DURATION_MS, sanitizeTrack, sanitizeEmoji, randomEmoji } from './sanitize.js';
@@ -108,16 +109,56 @@ export class Room {
     this.emitState();
   }
 
+  reorderFairQueue() {
+    if (this.queue.length <= 1) return;
+    // Sort chronologically first so each person's songs keep their exact request order
+    const ordered = [...this.queue].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+    const buckets = new Map(); // userId -> [items]
+    for (const item of ordered) {
+      const key = item.userId || item.qid;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(item);
+    }
+
+    // If the currently playing song's requester also has songs waiting, move them behind
+    // other waiting users for the first round so nobody plays twice in a row.
+    const activeUserId = this.current?.userId;
+    const keys = [...buckets.keys()];
+    if (activeUserId && buckets.has(activeUserId) && keys.length > 1) {
+      const idx = keys.indexOf(activeUserId);
+      keys.splice(idx, 1);
+      keys.push(activeUserId);
+    }
+
+    const interleaved = [];
+    let round = 0;
+    while (interleaved.length < ordered.length) {
+      for (const k of keys) {
+        const list = buckets.get(k);
+        if (round < list.length) interleaved.push(list[round]);
+      }
+      round++;
+    }
+    this.queue = interleaved;
+  }
+
   enqueue(clientId, rawTrack) {
     if (typeof clientId !== 'string') return { error: 'Debes entrar primero.' };
     const client = this.clients.get(clientId);
     if (!client) return { error: 'Debes entrar primero.' };
 
+    if (
+      rawTrack &&
+      typeof rawTrack === 'object' &&
+      typeof rawTrack.durationMs === 'number' &&
+      Number.isFinite(rawTrack.durationMs) &&
+      rawTrack.durationMs > MAX_TRACK_DURATION_MS
+    ) {
+      return { error: `Esta canción dura más de ${MAX_TRACK_MINUTES} min. Elige una más corta.` };
+    }
+
     const track = sanitizeTrack(rawTrack);
     if (!track) return { error: 'Track inválido.' };
-    if (this.queue.length >= MAX_QUEUE_SIZE) {
-      return { error: `La cola está llena (máx. ${MAX_QUEUE_SIZE} canciones).` };
-    }
 
     const now = Date.now();
     const last = this.lastPlayed.get(track.id);
@@ -148,20 +189,55 @@ export class Room {
         })
       : null;
 
+    this.queueSeq = (this.queueSeq || 0) + 1;
     this.queue.push({
       qid: crypto.randomUUID(),
+      seq: this.queueSeq,
       track,
       addedBy: client.name,
       addedByEmoji: client.emoji,
       userId: client.publicId,
       historyId,
     });
+    this.reorderFairQueue();
+
     if (!this.current && !this.advancing) {
       this.advance().catch((err) => console.error('advance error:', err));
     } else {
       this.emitState();
     }
     return { ok: true };
+  }
+
+  cancelQueued(clientId, qid) {
+    if (typeof clientId !== 'string') return { error: 'Debes entrar primero.' };
+    const client = this.clients.get(clientId);
+    if (!client) return { error: 'Debes entrar primero.' };
+    if (typeof qid !== 'string' || !qid) return { error: 'Canción inválida.' };
+
+    const idx = this.queue.findIndex((q) => q.qid === qid);
+    if (idx === -1) return { error: 'Esta canción ya no está en la cola.' };
+
+    const item = this.queue[idx];
+    if (item.userId !== client.publicId) {
+      return { error: 'Solo puedes quitar tus propias canciones de la cola.' };
+    }
+
+    this.queue.splice(idx, 1);
+    this.reorderFairQueue();
+
+    // Refund 1 enqueue slot so the participant can pick another song
+    const now = Date.now();
+    const log = (this.enqueueLog.get(clientId) || []).filter((ts) => now - ts < ENQUEUE_WINDOW_MS);
+    if (log.length > 0) {
+      log.pop();
+      if (log.length === 0) this.enqueueLog.delete(clientId);
+      else this.enqueueLog.set(clientId, log);
+    }
+
+    if (item.historyId) this.db?.deleteQueuedHistory(item.historyId);
+    this.emitState();
+    return { ok: true, removed: item.track.name };
   }
 
   vote(clientId, value, expectedTrackId = null) {
@@ -248,6 +324,7 @@ export class Room {
       let track = next?.track || null;
       let addedBy = next?.addedBy || null;
       let addedByEmoji = next?.addedByEmoji || '🎵';
+      let userId = next?.userId || null;
       let historyId = next?.historyId || null;
 
       if (!track) {
@@ -256,6 +333,7 @@ export class Room {
           track = picked ? sanitizeTrack(picked) : null;
           addedBy = 'Shuffle';
           addedByEmoji = '🎲';
+          userId = null;
         } catch (err) {
           console.error('randomTrack error:', err.message);
           track = null;
@@ -265,6 +343,7 @@ export class Room {
           track = queued.track;
           addedBy = queued.addedBy;
           addedByEmoji = queued.addedByEmoji || '🎵';
+          userId = queued.userId || null;
           historyId = queued.historyId || null;
         }
       }
@@ -292,12 +371,14 @@ export class Room {
         track,
         addedBy,
         addedByEmoji,
+        userId,
         historyId,
         startedAt: Date.now(),
         endsAt: Date.now() + durationMs,
         reason,
         skippedTrack: skippedTrack?.name || null,
       };
+      this.reorderFairQueue();
       this.lastPlayed.set(track.id, Date.now());
       this.endTimer = setTimeout(() => {
         this.advance('ended').catch((err) => console.error('advance timer error:', err));

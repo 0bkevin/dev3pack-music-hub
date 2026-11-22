@@ -141,6 +141,13 @@ export class MusicDB {
       .run(status, likes || 0, dislikes || 0, historyId);
   }
 
+  deleteQueuedHistory(historyId) {
+    if (!historyId) return;
+    this.db
+      .prepare("DELETE FROM track_history WHERE id = ? AND status = 'queued'")
+      .run(historyId);
+  }
+
   getRecentPlayedCooldowns(windowMs) {
     const cutoff = Date.now() - windowMs;
     const rows = this.db
