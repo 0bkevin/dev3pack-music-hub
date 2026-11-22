@@ -1148,17 +1148,17 @@ a:focus-visible {
   color: #fff;
 }
 
-/* Official Dev3pack Global Hackathon CCS 2026 SVG — crisp hero centerpiece */
+/* Official Dev3pack Global Hackathon CCS 2026 SVG — fluid viewport-responsive hero */
 .tv-svg-bg {
   position: absolute;
   inset: 0;
-  background: #551727 url('/bg-ccs-2026.svg') 38% 42% / min(76%, 1120px) auto no-repeat;
+  background: #551727 url('/bg-ccs-2026.svg') 16% 43% / min(84vw, 136vh) auto no-repeat;
   z-index: 0;
-  transition: background-position 0.7s ease, background-size 0.7s ease;
+  transition: background-position 0.6s ease, background-size 0.6s ease;
 }
 .tv-screen:not(.playing) .tv-svg-bg {
   background-position: center 45%;
-  background-size: min(86%, 1280px) auto;
+  background-size: min(94vw, 150vh) auto;
 }
 
 /* Soft ambient tint at bottom so waves & dock have depth without dimming the Dev3pack logo */
@@ -1261,7 +1261,7 @@ a:focus-visible {
 .tv-queue:hover { opacity: 0.92; }
 @media (max-width: 1020px) {
   .tv-queue { display: none; }
-  .tv-svg-bg { background-position: center 42%; background-size: 86% auto; }
+  .tv-svg-bg { background-position: center 43%; background-size: min(98vw, 145vh) auto; }
 }
 
 .tv-queue-head {
@@ -1483,7 +1483,7 @@ a:focus-visible {
 
 @media (max-width: 720px) {
   .tv-layout { padding: 20px 20px 24px; }
-  .tv-svg-bg { background-position: center 38%; background-size: 90% auto; }
+  .tv-svg-bg { background-position: center 39%; background-size: 100vw auto; }
   .tv-dock-row {
     flex-direction: column;
     align-items: stretch;
