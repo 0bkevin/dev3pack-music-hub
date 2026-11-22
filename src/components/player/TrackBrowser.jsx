@@ -36,8 +36,6 @@ export function TrackBrowser(props) {
             </button>
           </Show>
         </div>
-
-        <span class="section-sub">Máx. 3 canciones cada 10 min · 30 min para repetir</span>
       </div>
 
       <Show

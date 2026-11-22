@@ -156,7 +156,7 @@ export function CommandSearch(props) {
               value={query()}
               onInput={(e) => handleQueryInput(e.currentTarget.value)}
               onKeyDown={handleInputKeyDown}
-              placeholder="Buscar canción o artista para proponer…"
+              placeholder="Buscar canción o artista…"
               autocomplete="off"
               spellcheck={false}
             />

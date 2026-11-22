@@ -27,11 +27,7 @@ export function QueueRail(props) {
         <div class="rail-scroll">
           <Show
             when={props.queue().length > 0}
-            fallback={
-              <div class="empty-copy">
-                La cola está vacía. Cuando termine la canción actual elegimos una aleatoria.
-              </div>
-            }
+            fallback={<div class="empty-copy">Cola vacía</div>}
           >
             <For each={props.queue()}>
               {(item, i) => {

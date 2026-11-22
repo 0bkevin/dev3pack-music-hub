@@ -43,11 +43,11 @@ export function NowPlayingHero(props) {
         </div>
 
         <h1 class="stage-title">
-          {props.current()?.track?.name || 'Pon la primera canción'}
+          {props.current()?.track?.name || 'Sin reproducción'}
         </h1>
-        <div class="stage-artist">
-          {props.current()?.track?.artists || 'Busca cualquier artista o elige una sugerencia abajo'}
-        </div>
+        <Show when={props.current()?.track?.artists}>
+          <div class="stage-artist">{props.current().track.artists}</div>
+        </Show>
 
         <div class="stage-actions">
           <button

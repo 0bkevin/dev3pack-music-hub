@@ -161,7 +161,7 @@ export function ScreenApp() {
         <div class="tv-idle" id="idle">
           <div class="tv-idle-bar">
             <i class="live-dot" />
-            <span>Esperando música · Entra desde tu celular o laptop para agregar una canción</span>
+            <span>Esperando música</span>
             <Show when={host()?.configured && !host()?.connected}>
               <a class="tv-audio-btn" href="/api/spotify/login">
                 Conectar Spotify
@@ -180,7 +180,7 @@ export function ScreenApp() {
             </div>
             <Show
               when={queue().length > 0}
-              fallback={<div class="tv-empty">Cola vacía — siguiente aleatoria</div>}
+              fallback={<div class="tv-empty">Cola vacía</div>}
             >
               <div class="tv-queue-list">
                 <For each={queue()}>

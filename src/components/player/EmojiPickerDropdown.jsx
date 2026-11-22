@@ -82,7 +82,7 @@ export function EmojiPickerDropdown(props) {
                   pick(filtered()[0]);
                 }
               }}
-              placeholder="Buscar o pega cualquier emoji…"
+              placeholder="Buscar emoji…"
               autocomplete="off"
             />
           </div>
@@ -101,11 +101,7 @@ export function EmojiPickerDropdown(props) {
           <div class="emoji-dd-grid" role="listbox">
             <Show
               when={filtered().length > 0}
-              fallback={
-                <div class="emoji-dd-empty">
-                  Sin coincidencias — también puedes pegar cualquier emoji arriba.
-                </div>
-              }
+              fallback={<div class="emoji-dd-empty">Sin resultados</div>}
             >
               <For each={filtered()}>
                 {(em) => (

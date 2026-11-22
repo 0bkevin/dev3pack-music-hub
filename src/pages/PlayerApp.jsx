@@ -48,10 +48,7 @@ export function PlayerApp() {
       saveSession(data);
       setSession(data);
       if (!silent) {
-        toast.success(
-          `¡Bienvenido, ${data.emoji} ${data.name}!`,
-          'Ya puedes pedir canciones y votar lo que suena.'
-        );
+        toast.success(`¡Bienvenido, ${data.emoji} ${data.name}!`);
       }
     } catch (err) {
       setJoinError(err.message);
@@ -160,9 +157,7 @@ export function PlayerApp() {
       });
       toast.success(
         `«${track.name}» agregada`,
-        hadCurrent
-          ? 'Entró en la cola con turno intercalado.'
-          : 'Empieza a sonar ahora mismo.'
+        hadCurrent ? '' : 'Sonando ahora'
       );
       return true;
     } catch (err) {

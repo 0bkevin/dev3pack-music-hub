@@ -105,10 +105,7 @@ export function HistoryApp() {
           throw err;
         }
       }
-      toast.success(
-        `«${track.name}» agregada`,
-        'Ya está en la cola de la sala.'
-      );
+      toast.success(`«${track.name}» agregada`);
       loadAll();
       return true;
     } catch (err) {
@@ -191,8 +188,7 @@ export function HistoryApp() {
 
         <section class="hist-section">
           <div class="hist-section-head">
-            <h2>Podio · Top 3</h2>
-            <span class="hist-hint">Toca un avatar para abrir su historial</span>
+            <h2>Top 3</h2>
           </div>
 
           <Show

@@ -19,7 +19,6 @@ export function JoinOverlay(props) {
               height="96"
             />
             <h1>Dev3pack Music</h1>
-            <p>Elige tu emoji y tu nombre para pedir canciones, o entra como anónimo.</p>
           </div>
 
           <Show when={props.current()}>
@@ -67,7 +66,7 @@ export function JoinOverlay(props) {
               type="button"
               onClick={() => props.onJoin(props.nameInput() || undefined, props.selectedEmoji())}
             >
-              Entrar a escuchar
+              Entrar
             </button>
             <button
               class="btn-subtle"
@@ -75,7 +74,7 @@ export function JoinOverlay(props) {
               type="button"
               onClick={() => props.onJoin(undefined, undefined)}
             >
-              Entrar como anónimo (emoji aleatorio)
+              Entrar como anónimo
             </button>
           </div>
         </div>

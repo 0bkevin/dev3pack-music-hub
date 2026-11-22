@@ -10,9 +10,9 @@ export function PlayerBar(props) {
         <Cover track={props.current()?.track} class="pb-art" />
         <div class="pb-meta">
           <div class="pb-title">{props.current()?.track?.name || 'Sin reproducción'}</div>
-          <div class="pb-artist">
-            {props.current()?.track?.artists || 'Agrega una canción para empezar'}
-          </div>
+          <Show when={props.current()?.track?.artists}>
+            <div class="pb-artist">{props.current().track.artists}</div>
+          </Show>
         </div>
       </div>
 
