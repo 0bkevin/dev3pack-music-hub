@@ -95,6 +95,7 @@ describe('Security hardening & adversarial input sanitization', () => {
 
     const snap = room.snapshot();
     assert.equal('redirectUri' in snap.spotifyHost, false);
+    assert.equal('user' in snap.spotifyHost, false);
     assert.equal('accessToken' in snap.spotifyHost, false);
     assert.equal('refreshToken' in snap.spotifyHost, false);
     assert.equal('sessionToken' in snap.spotifyHost, false);
