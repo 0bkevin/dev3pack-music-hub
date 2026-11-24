@@ -179,7 +179,7 @@
 @media (max-width: 640px) {
   .sonner-toaster,
   .sonner-toaster.above-player {
-    top: 10px;
+    top: max(14px, env(safe-area-inset-top, 14px));
     right: 50%;
     bottom: auto;
     transform: translateX(50%);
@@ -193,6 +193,9 @@
       opacity: 0;
       transform: translateY(-100%);
     }
+  }
+  .sonner-close {
+    transform: translate(-18%, -18%);
   }
   .sonner-toast[data-expanded='true'] {
     --y: translateY(calc(var(--index) * (var(--toast-h) + var(--gap)))) scale(1);
@@ -215,6 +218,7 @@
     }
   }
   .sonner-toast[data-removed='true'] {
+    opacity: 0;
     transform: var(--y);
   }
 }

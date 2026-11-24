@@ -4,6 +4,7 @@ import {
   SPOTIFY_CLIENT_SECRET as CLIENT_SECRET,
   SPOTIFY_REDIRECT_URI as REDIRECT_URI,
   SPOTIFY_MARKET as MARKET,
+  MAX_TRACK_DURATION_MS,
 } from './config.js';
 import { searchDemoCatalog, getDemoTrackById, randomDemoTrack } from './demoCatalog.js';
 
@@ -34,6 +35,7 @@ let refreshInFlight = null;
 
 const pendingOAuthStates = new Map();
 const OAUTH_STATE_TTL_MS = 10 * 60_000;
+const MAX_PENDING_OAUTH_STATES = 100;
 
 const SP_WINDOW_MS = 5000;
 const SP_MAX_SEARCH_CALLS = 18;
@@ -156,6 +158,9 @@ export function getAuthUrl() {
   }
   const oauthState = crypto.randomBytes(16).toString('hex');
   pendingOAuthStates.set(oauthState, now);
+  while (pendingOAuthStates.size > MAX_PENDING_OAUTH_STATES) {
+    pendingOAuthStates.delete(pendingOAuthStates.keys().next().value);
+  }
 
   const url = new URL('https://accounts.spotify.com/authorize');
   url.search = new URLSearchParams({
@@ -228,6 +233,15 @@ export function setHostDevice(deviceId) {
   const trimmed = deviceId.trim();
   if (!trimmed || trimmed.length > 128) return false;
   host.deviceId = trimmed;
+  return true;
+}
+
+export function clearHostDevice(expectedDeviceId = null) {
+  if (expectedDeviceId && typeof expectedDeviceId === 'string') {
+    const trimmed = expectedDeviceId.trim();
+    if (trimmed && host.deviceId !== trimmed) return false;
+  }
+  host.deviceId = null;
   return true;
 }
 
@@ -424,7 +438,9 @@ export async function randomTrack(excludeIds = new Set()) {
         continue;
       }
       const items = (await res.json()).tracks?.items || [];
-      const fresh = items.filter((t) => !excludeIds.has(t.id));
+      const fresh = items.filter(
+        (t) => !excludeIds.has(t.id) && (!t.duration_ms || t.duration_ms <= MAX_TRACK_DURATION_MS)
+      );
       if (fresh.length) return normalize(fresh[Math.floor(Math.random() * fresh.length)]);
     } catch {
       if (attempt < 5) await new Promise((r) => setTimeout(r, 150));

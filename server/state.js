@@ -383,7 +383,7 @@ export class Room {
 
       if (!track) {
         this.current = null;
-        this.emitState();
+        this.emitState(true);
         return;
       }
 
@@ -416,7 +416,7 @@ export class Room {
       this.endTimer = setTimeout(() => {
         this.advance('ended').catch((err) => console.error('advance timer error:', err));
       }, durationMs);
-      this.emitState();
+      this.emitState(true);
       this.syncCurrentPlayback();
     } finally {
       this.advancing = false;
@@ -446,7 +446,7 @@ export class Room {
     };
   }
 
-  emitState() {
-    this.broadcast(this.snapshot());
+  emitState(immediate = false) {
+    this.broadcast(this.snapshot(), immediate ? { immediate: true } : undefined);
   }
 }

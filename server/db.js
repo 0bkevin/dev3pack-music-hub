@@ -33,6 +33,7 @@ export class MusicDB {
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        name_lower TEXT,
         emoji TEXT NOT NULL,
         anonymous INTEGER NOT NULL DEFAULT 0,
         ip_hash TEXT NOT NULL,
@@ -66,6 +67,21 @@ export class MusicDB {
       CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_hash);
       CREATE INDEX IF NOT EXISTS idx_users_name_lower ON users(LOWER(name));
     `);
+
+    const cols = this.db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+    if (!cols.includes('name_lower')) {
+      this.db.exec('ALTER TABLE users ADD COLUMN name_lower TEXT;');
+    }
+    const missingLower = this.db
+      .prepare('SELECT id, name FROM users WHERE name_lower IS NULL')
+      .all();
+    if (missingLower.length > 0) {
+      const upd = this.db.prepare('UPDATE users SET name_lower = ? WHERE id = ?');
+      for (const r of missingLower) {
+        upd.run(String(r.name || '').normalize('NFC').trim().toLowerCase(), r.id);
+      }
+    }
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_users_name_fold ON users(name_lower);');
   }
 
   ensureSalt() {
@@ -86,25 +102,28 @@ export class MusicDB {
 
   isNameTaken(name) {
     if (!name || typeof name !== 'string') return false;
+    const folded = name.normalize('NFC').trim().toLowerCase();
     const row = this.db
-      .prepare('SELECT 1 FROM users WHERE LOWER(name) = LOWER(?) AND anonymous = 0 LIMIT 1')
-      .get(name.trim());
+      .prepare('SELECT 1 FROM users WHERE name_lower = ? AND anonymous = 0 LIMIT 1')
+      .get(folded);
     return Boolean(row);
   }
 
   recordUser({ publicId, name, emoji, anonymous, ip }) {
     const now = Date.now();
     const ipHash = this.pseudonymizeIp(ip);
+    const nameLower = String(name || '').normalize('NFC').trim().toLowerCase();
     this.db
       .prepare(`
-        INSERT INTO users (id, name, emoji, anonymous, ip_hash, created_at, last_seen_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, name, name_lower, emoji, anonymous, ip_hash, created_at, last_seen_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
+          name_lower = excluded.name_lower,
           emoji = excluded.emoji,
           last_seen_at = excluded.last_seen_at
       `)
-      .run(publicId, name, emoji, anonymous ? 1 : 0, ipHash, now, now);
+      .run(publicId, name, nameLower, emoji, anonymous ? 1 : 0, ipHash, now, now);
     return ipHash;
   }
 

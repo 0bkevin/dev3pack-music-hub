@@ -7,6 +7,7 @@ import {
   getHostAccessToken,
   verifyHostSession,
   setHostDevice,
+  clearHostDevice,
   pauseAndDisconnectHost,
   getHostStatus,
   getPublicHostStatus,
@@ -23,6 +24,7 @@ import {
 } from '../security.js';
 
 const OAUTH_COOKIE = 'd3m_spotify_oauth';
+const MAX_PENDING_PREAUTH = 100;
 
 function oauthCookie(req, value, maxAge) {
   return `${OAUTH_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/callback; Max-Age=${maxAge}${isHttpsReq(req) ? '; Secure' : ''}`;
@@ -67,7 +69,11 @@ export function createSpotifyRoutes(room) {
       return res.status(403).json({ error: 'Clave de host inválida.' });
     }
     const token = crypto.randomBytes(24).toString('hex');
+    prunePreAuth();
     pendingPreAuth.set(token, Date.now() + PREAUTH_TTL_MS);
+    while (pendingPreAuth.size > MAX_PENDING_PREAUTH) {
+      pendingPreAuth.delete(pendingPreAuth.keys().next().value);
+    }
     res.setHeader(
       'Set-Cookie',
       `${PREAUTH_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=300${isHttpsReq(req) ? '; Secure' : ''}`
@@ -110,10 +116,12 @@ export function createSpotifyRoutes(room) {
     res.json({ ok: true, host: getHostStatus(), playback });
   });
 
-  apiRouter.delete('/device', hostApiLimiter, requireHostSession, (_req, res) => {
-    setHostDevice(null);
-    room.emitState();
-    res.json({ ok: true, host: getHostStatus() });
+  apiRouter.delete('/device', hostApiLimiter, requireHostSession, (req, res) => {
+    const rawId = req.body?.deviceId ?? req.query?.deviceId ?? null;
+    const expectedId = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : null;
+    const cleared = clearHostDevice(expectedId);
+    if (cleared) room.emitState(true);
+    res.json({ ok: true, cleared, host: getHostStatus() });
   });
 
   apiRouter.post('/disconnect', hostApiLimiter, requireHostSession, async (req, res) => {

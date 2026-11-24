@@ -139,8 +139,16 @@ export function PlayerApp() {
     function closeQueueOnEscape(event) {
       if (event.key === 'Escape') setQueueOpen(false);
     }
+    const mobileDrawerQuery = window.matchMedia('(max-width: 980px)');
+    const closeQueueOnDesktop = (event) => {
+      if (!event.matches) setQueueOpen(false);
+    };
     window.addEventListener('keydown', closeQueueOnEscape);
-    onCleanup(() => window.removeEventListener('keydown', closeQueueOnEscape));
+    mobileDrawerQuery.addEventListener('change', closeQueueOnDesktop);
+    onCleanup(() => {
+      window.removeEventListener('keydown', closeQueueOnEscape);
+      mobileDrawerQuery.removeEventListener('change', closeQueueOnDesktop);
+    });
   });
 
   function handleSearchInput(val) {

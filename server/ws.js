@@ -5,21 +5,27 @@ import { auditLog, getClientIp, hashIp, isAllowedWsOrigin } from './security.js'
 const STATE_COALESCE_MS = 25;
 
 export function createWsHub(server) {
-  const sockets = new Map();      // ws -> { clientId: string | null, ip: string }
-  const socketsPerIp = new Map(); // ip -> count
-  const leaveTimers = new Map();  // clientToken -> Timeout
+  const sockets = new Map();       // ws -> { clientId: string | null, ip: string }
+  const socketsPerIp = new Map();  // ip -> active count
+  const pendingPerIp = new Map();  // ip -> in-flight upgrade count
+  let pendingTotal = 0;
+  const leaveTimers = new Map();   // clientToken -> Timeout
   let room = null;
-  let pendingStateMsg = null;
+  let statePending = false;
   let stateFlushTimer = null;
   let lastStateBroadcastAt = 0;
+
+  function adjustCount(map, key, delta) {
+    const next = (map.get(key) || 0) + delta;
+    if (next <= 0) map.delete(key);
+    else map.set(key, next);
+  }
 
   function removeSocket(ws) {
     const meta = sockets.get(ws);
     if (!meta) return null;
     sockets.delete(ws);
-    const n = (socketsPerIp.get(meta.ip) || 1) - 1;
-    if (n <= 0) socketsPerIp.delete(meta.ip);
-    else socketsPerIp.set(meta.ip, n);
+    adjustCount(socketsPerIp, meta.ip, -1);
     return meta;
   }
 
@@ -43,33 +49,51 @@ export function createWsHub(server) {
     for (const ws of [...sockets.keys()]) safeSend(ws, data);
   }
 
-  function broadcast(msg) {
+  function flushPendingState() {
+    if (stateFlushTimer) {
+      clearTimeout(stateFlushTimer);
+      stateFlushTimer = null;
+    }
+    if (!statePending) return;
+    statePending = false;
+    if (!room) return;
+    lastStateBroadcastAt = Date.now();
+    sendAll(room.snapshot());
+  }
+
+  function broadcast(msg, opts = {}) {
     if (msg?.type !== 'state') {
+      flushPendingState();
       sendAll(msg);
       return;
     }
     const now = Date.now();
-    if (!stateFlushTimer && now - lastStateBroadcastAt >= STATE_COALESCE_MS) {
+    if (opts.immediate || (!stateFlushTimer && now - lastStateBroadcastAt >= STATE_COALESCE_MS)) {
+      if (stateFlushTimer) {
+        clearTimeout(stateFlushTimer);
+        stateFlushTimer = null;
+      }
+      statePending = false;
       lastStateBroadcastAt = now;
-      sendAll(msg);
+      sendAll(room ? room.snapshot() : msg);
       return;
     }
-    pendingStateMsg = msg;
+    statePending = true;
     if (!stateFlushTimer) {
       const delay = Math.max(1, STATE_COALESCE_MS - (now - lastStateBroadcastAt));
       stateFlushTimer = setTimeout(() => {
         stateFlushTimer = null;
-        const latest = pendingStateMsg;
-        pendingStateMsg = null;
-        if (latest) {
+        if (statePending && room) {
+          statePending = false;
           lastStateBroadcastAt = Date.now();
-          sendAll(latest);
+          sendAll(room.snapshot());
         }
       }, delay);
     }
   }
 
   function sendToClient(clientId, msg) {
+    flushPendingState();
     const data = JSON.stringify(msg);
     for (const [ws, meta] of sockets.entries()) {
       if (meta.clientId === clientId) safeSend(ws, data);
@@ -102,25 +126,63 @@ export function createWsHub(server) {
   }
 
   const wss = new WebSocketServer({
-    server,
-    path: '/ws',
+    noServer: true,
     maxPayload: 4 * 1024,
-    verifyClient: ({ req }, cb) => {
-      const ip = getClientIp(req);
-      if (!isAllowedWsOrigin(req)) {
-        auditLog('ws.origin_rejected', { ipHash: hashIp(ip) });
-        return cb(false, 403, 'Forbidden Origin');
-      }
-      if (sockets.size >= MAX_WS_CONNECTIONS) {
-        auditLog('ws.global_cap_exceeded', { ipHash: hashIp(ip) });
-        return cb(false, 503, 'Server Busy');
-      }
-      if ((socketsPerIp.get(ip) || 0) >= MAX_WS_PER_IP) {
-        auditLog('ws.ip_cap_exceeded', { ipHash: hashIp(ip) });
-        return cb(false, 429, 'Too Many Connections');
-      }
-      return cb(true);
-    },
+  });
+
+  function rejectUpgrade(socket, statusCode, statusText) {
+    try {
+      socket.write(
+        `HTTP/1.1 ${statusCode} ${statusText}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(statusText)}\r\n\r\n${statusText}`
+      );
+    } catch { /* ignore */ }
+    socket.destroy();
+  }
+
+  server.on('upgrade', (req, socket, head) => {
+    let pathname = '';
+    try {
+      pathname = new URL(req.url || '/', 'http://localhost').pathname;
+    } catch {
+      return rejectUpgrade(socket, 400, 'Bad Request');
+    }
+    if (pathname !== '/ws') {
+      return rejectUpgrade(socket, 404, 'Not Found');
+    }
+
+    const ip = getClientIp(req);
+    if (!isAllowedWsOrigin(req)) {
+      auditLog('ws.origin_rejected', { ipHash: hashIp(ip) });
+      return rejectUpgrade(socket, 403, 'Forbidden Origin');
+    }
+    if (sockets.size + pendingTotal >= MAX_WS_CONNECTIONS) {
+      auditLog('ws.global_cap_exceeded', { ipHash: hashIp(ip) });
+      return rejectUpgrade(socket, 503, 'Server Busy');
+    }
+    if ((socketsPerIp.get(ip) || 0) + (pendingPerIp.get(ip) || 0) >= MAX_WS_PER_IP) {
+      auditLog('ws.ip_cap_exceeded', { ipHash: hashIp(ip) });
+      return rejectUpgrade(socket, 429, 'Too Many Connections');
+    }
+
+    let released = false;
+    const releasePending = () => {
+      if (released) return;
+      released = true;
+      pendingTotal = Math.max(0, pendingTotal - 1);
+      adjustCount(pendingPerIp, ip, -1);
+    };
+
+    pendingTotal++;
+    adjustCount(pendingPerIp, ip, 1);
+    socket.once('close', releasePending);
+    socket.once('error', releasePending);
+
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      socket.off('close', releasePending);
+      socket.off('error', releasePending);
+      releasePending();
+      wss.emit('connection', ws, req);
+    });
   });
 
   wss.on('connection', (ws, req) => {
@@ -134,7 +196,7 @@ export function createWsHub(server) {
 
     const meta = { clientId: null, ip };
     sockets.set(ws, meta);
-    socketsPerIp.set(ip, (socketsPerIp.get(ip) || 0) + 1);
+    adjustCount(socketsPerIp, ip, 1);
     if (room) safeSend(ws, JSON.stringify(room.snapshot()));
 
     ws.on('message', (raw) => {
@@ -193,7 +255,7 @@ export function createWsHub(server) {
   function closeAll() {
     clearTimeout(stateFlushTimer);
     stateFlushTimer = null;
-    pendingStateMsg = null;
+    statePending = false;
     for (const t of leaveTimers.values()) clearTimeout(t);
     leaveTimers.clear();
     for (const ws of wss.clients) {

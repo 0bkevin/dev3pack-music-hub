@@ -68,11 +68,17 @@ export function createSpotifyHostPlayer({ host, onError }) {
       }
     });
 
-    player.addListener('not_ready', () => {
+    player.addListener('not_ready', ({ device_id } = {}) => {
       if (player !== activePlayer) return;
-      setDeviceId(null);
-      setUnlocked(false);
-      fetch('/api/spotify/device', { method: 'DELETE' }).catch(() => {});
+      const staleId = device_id || deviceId();
+      if (!device_id || deviceId() === device_id) {
+        setDeviceId(null);
+        setUnlocked(false);
+      }
+      const url = staleId
+        ? `/api/spotify/device?deviceId=${encodeURIComponent(staleId)}`
+        : '/api/spotify/device';
+      fetch(url, { method: 'DELETE' }).catch(() => {});
       onError?.('Reproductor de Spotify desconectado temporalmente.', 4500);
     });
     player.addListener('player_state_changed', (s) => {

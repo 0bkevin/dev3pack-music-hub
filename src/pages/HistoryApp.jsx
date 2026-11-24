@@ -39,29 +39,32 @@ export function HistoryApp() {
 
   const room = createRoom();
 
-  async function loadAll() {
-    setLoading(true);
+  async function loadAll(silent = false) {
+    if (!silent) setLoading(true);
     try {
       const res = await api('/api/history');
       setData(res);
       const openId = openUserId();
-      if (openId) fetchUserHistory(openId);
+      if (openId) fetchUserHistory(openId, { silent: true });
     } catch (err) {
-      toast.error('No se pudo cargar el historial', err.message);
+      if (!silent) toast.error('No se pudo cargar el historial', err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
-  async function fetchUserHistory(userId) {
-    setLoadingUserId(userId);
+  async function fetchUserHistory(userId, { silent = false } = {}) {
+    const hasCached = Boolean(userTracks()[userId]?.length);
+    if (!silent && !hasCached) setLoadingUserId(userId);
     try {
       const res = await api(`/api/history/user/${encodeURIComponent(userId)}`);
       setUserTracks((prev) => ({ ...prev, [userId]: res.history || [] }));
     } catch (err) {
-      toast.error('No se pudo cargar el historial del participante', err.message);
+      if (!silent) toast.error('No se pudo cargar el historial del participante', err.message);
     } finally {
-      setLoadingUserId((cur) => (cur === userId ? null : cur));
+      if (!silent && !hasCached) {
+        setLoadingUserId((cur) => (cur === userId ? null : cur));
+      }
     }
   }
 
@@ -122,7 +125,7 @@ export function HistoryApp() {
 
   onMount(() => {
     loadAll();
-    const timer = setInterval(loadAll, 15_000);
+    const timer = setInterval(() => loadAll(true), 15_000);
     onCleanup(() => {
       clearInterval(timer);
     });

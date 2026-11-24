@@ -22,7 +22,7 @@ export function QueueRail(props) {
   });
 
   function trapDrawerFocus(event) {
-    if (!props.open() || event.key !== 'Tab' || !railRef) return;
+    if (!props.open() || event.key !== 'Tab' || !railRef || !window.matchMedia('(max-width: 980px)').matches) return;
     const controls = railRef.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
     if (!controls.length) return;
     const first = controls[0];

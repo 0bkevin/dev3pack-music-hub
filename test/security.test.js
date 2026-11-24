@@ -2,8 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room, sanitizeTrack } from '../server/state.js';
 import { sanitizeEmoji, validateDisplayName } from '../server/sanitize.js';
-import { playTrackOnHost, resolveTrack, setHostDevice } from '../server/spotify.js';
+import { clearHostDevice, playTrackOnHost, resolveTrack, setHostDevice } from '../server/spotify.js';
 import { normalizeIp } from '../server/security.js';
+import { MusicDB } from '../server/db.js';
 
 describe('Security hardening & adversarial input sanitization', () => {
   it('blocks forged track IDs, CSS-injection imageUrls, extreme durations, and invalid URIs', () => {
@@ -150,9 +151,12 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.equal(sanitizeEmoji('1️⃣'), '1️⃣');
     assert.notEqual(sanitizeEmoji('🎧\u0301'), '🎧\u0301');
 
-    // Host device validation & refusing to play without registered TV device
+    // Host device validation, stale device clear protection, & refusing to play without registered TV device
     assert.equal(setHostDevice('x'.repeat(129)), false);
     assert.equal(setHostDevice('   '), false);
+    assert.equal(setHostDevice('device-new'), true);
+    assert.equal(clearHostDevice('device-old'), false);
+    assert.equal(clearHostDevice('device-new'), true);
     assert.equal(setHostDevice(null), true);
     const playRes = await playTrackOnHost(
       { uri: 'spotify:track:0DiWol3AO6WpXZgp0goxAV' },
@@ -160,6 +164,13 @@ describe('Security hardening & adversarial input sanitization', () => {
     );
     assert.equal(playRes.ok, false);
     assert.equal(playRes.reason, 'device-not-ready');
+
+    // Non-ASCII case folding for duplicate names in SQLite
+    const db = new MusicDB(':memory:');
+    db.recordUser({ publicId: 'a1b2c3d4e5f60708', name: 'Ángel', emoji: '🎵', anonymous: false, ip: '127.0.0.1' });
+    assert.equal(db.isNameTaken('ángel'), true);
+    assert.equal(db.isNameTaken('A\u0301ngel'), true);
+    db.close();
 
     // IPv4-mapped IPv6 normalization
     assert.equal(normalizeIp('::ffff:127.0.0.1'), '127.0.0.1');
