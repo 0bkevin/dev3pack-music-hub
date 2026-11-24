@@ -40,6 +40,7 @@ export const MUTATE_RATE_MAX = envInt('MUTATE_RATE_MAX_PER_IP', 300, 30, 5000);
 
 export const ZOMBIE_TTL_MS = 30_000;
 export const MAX_WS_PER_IP = envInt('MAX_WS_PER_IP', 40, 1, 5000);
+export const MAX_WS_CONNECTIONS = envInt('MAX_WS_CONNECTIONS', Math.max(MAX_CLIENTS * 2, 500), 10, 10_000);
 export const HOST_COOKIE = 'd3m_host';
 export const PREAUTH_COOKIE = 'd3m_host_init';
 export const PREAUTH_TTL_MS = 5 * 60_000;

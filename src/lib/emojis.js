@@ -124,13 +124,17 @@ const segmenter =
     ? new Intl.Segmenter('en', { granularity: 'grapheme' })
     : null;
 const EMOJI_CHAR_RE = /\p{Extended_Pictographic}/u;
+const FLAG_EMOJI_RE = /^\p{Regional_Indicator}{2}$/u;
+const KEYCAP_EMOJI_RE = /^[#*0-9]\uFE0F?\u20E3$/u;
 const DISALLOWED_EMOJI_CP = /[\u{E0000}-\u{E007F}\p{Mark}]/u;
 
 export function extractSingleEmoji(input) {
   const s = (input || '').trim();
   if (!s || s.length > 14 || /[<>"'&`\\/\s\r\n\t]/.test(s)) return null;
   const segs = segmenter ? [...segmenter.segment(s)].map((x) => x.segment) : [...s];
-  if (segs.length !== 1 || !EMOJI_CHAR_RE.test(segs[0])) return null;
+  if (segs.length !== 1) return null;
+  if (FLAG_EMOJI_RE.test(segs[0]) || KEYCAP_EMOJI_RE.test(segs[0])) return segs[0];
+  if (!EMOJI_CHAR_RE.test(segs[0])) return null;
   const stripped = segs[0].replace(/[\uFE0F\u200D]/g, '');
   if (DISALLOWED_EMOJI_CP.test(stripped) || /\p{Cf}/u.test(stripped)) return null;
   return segs[0];

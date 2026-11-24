@@ -297,11 +297,14 @@
     backdrop-filter: blur(20px);
     box-shadow: -20px 0 60px rgba(0, 0, 0, 0.65);
     transform: translateX(100%);
-    transition: transform 360ms var(--ease-drawer);
+    visibility: hidden;
+    transition: transform 360ms var(--ease-drawer), visibility 0s linear 360ms;
   }
   .queue-rail::before { display: none; }
   .queue-rail.open {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 360ms var(--ease-drawer), visibility 0s;
   }
   .main-pane { padding: 4px 20px 36px; }
   .track-table-head,

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { isIP } from 'node:net';
 import { ALLOWED_ORIGINS, TRUST_PROXY } from './config.js';
 
 // Ephemeral per-boot salt for IP pseudonymization in structured audit logs (ISO 27701)
@@ -42,9 +43,25 @@ export function safeEqual(a, b) {
   return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 }
 
+export function normalizeIp(ip) {
+  if (!ip || typeof ip !== 'string') return 'unknown';
+  return ip.trim().replace(/^::ffff:(?=\d+\.)/i, '') || 'unknown';
+}
+
+export function getClientIp(req) {
+  if (TRUST_PROXY) {
+    const rawForwarded = req.headers?.['x-forwarded-for'];
+    const forwarded = typeof rawForwarded === 'string'
+      ? rawForwarded.split(',').at(-1)?.trim()
+      : '';
+    if (forwarded && isIP(forwarded)) return normalizeIp(forwarded);
+  }
+  return normalizeIp(req.socket?.remoteAddress || req.ip || 'unknown');
+}
+
 export function isLoopback(req) {
-  const ip = req.socket?.remoteAddress || '';
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  const ip = normalizeIp(req.socket?.remoteAddress || '');
+  return ip === '127.0.0.1' || ip === '::1';
 }
 
 export function isHttpsReq(req) {
@@ -53,10 +70,10 @@ export function isHttpsReq(req) {
 
 export function isAllowedWsOrigin(req) {
   const origin = req.headers.origin;
-  if (!origin) return true;
   if (ALLOWED_ORIGINS.length > 0) {
-    return ALLOWED_ORIGINS.includes(origin);
+    return Boolean(origin && ALLOWED_ORIGINS.includes(origin));
   }
+  if (!origin) return true;
   const host = req.headers.host;
   if (!host) return false;
   try {
@@ -72,7 +89,7 @@ export function makeIpLimiter(maxHits, windowMs, bucket) {
   const globalMax = maxHits * 4;
 
   return (req, res, next) => {
-    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const now = Date.now();
 
     // Global backstop prevents total bypass if proxy X-Forwarded-For is misconfigured
@@ -109,6 +126,7 @@ const CSP = [
   "media-src 'self' https://*.scdn.co",
   "frame-src https://sdk.scdn.co",
   "frame-ancestors 'self'",
+  "form-action 'self'",
   "base-uri 'self'",
   "object-src 'none'",
 ].join('; ');

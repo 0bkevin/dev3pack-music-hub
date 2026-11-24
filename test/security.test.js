@@ -1,7 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room, sanitizeTrack } from '../server/state.js';
-import { validateDisplayName } from '../server/sanitize.js';
+import { sanitizeEmoji, validateDisplayName } from '../server/sanitize.js';
+import {
+  clearHostDevice,
+  getHostDeviceGeneration,
+  playTrackOnHost,
+  resolveTrack,
+  setHostDevice,
+} from '../server/spotify.js';
+import { normalizeIp } from '../server/security.js';
+import { MusicDB } from '../server/db.js';
 
 describe('Security hardening & adversarial input sanitization', () => {
   it('blocks forged track IDs, CSS-injection imageUrls, extreme durations, and invalid URIs', () => {
@@ -115,13 +124,72 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.ok(validateDisplayName('A').error);
     assert.ok(validateDisplayName('Este nombre es demasiado largo para entrar').error);
 
-    // Blocked names: dictators/political figures, leetspeak/spaced evasions, profanity, gore
+    // Blocked names: dictators/political figures, leetspeak/spaced/confusable evasions, profanity, gore
     for (const bad of [
-      'Hitler', 'H1tl3r', 'H i t l e r', 'Mussolini', 'Musoline', 'Trump', 'Donald Trump',
-      'Nazi', 'Puta', 'Maricón', 'Mamaguevo', 'FuckYou', 'GoreMaster', 'Decapitado', 'Suicidio',
+      'Hitler', 'H1tl3r', 'H i t l e r', 'Нitlеr', 'Mussolini', 'Musoline', 'Trump', 'Donald Trump',
+      'Nazi', 'Puta', 'Maricón', 'Mamaguevo', 'mаmаguеvо', 'FuckYou', 'GoreMaster', 'Decapitado', 'Suicidio',
     ]) {
       const r = validateDisplayName(bad);
       assert.ok(r.error, `Should block inappropriate name: ${bad}`);
     }
+
+    // Decomposed NFD accents (e.g. macOS input) normalize to NFC cleanly; pure punctuation rejected
+    const nfd = validateDisplayName('Jose\u0301');
+    assert.equal(nfd.error, undefined);
+    assert.equal(nfd.name, 'José');
+    assert.ok(validateDisplayName('...').error);
+    assert.ok(validateDisplayName('---').error);
+  });
+
+  it('canonicalizes Spotify track IDs to URI, supports flag/keycap emoji, and guards host device playback', async () => {
+    // Mismatched id/uri canonicalized in sanitizeTrack and rejected in resolveTrack
+    const canonical = sanitizeTrack({
+      id: 'spoofed-id',
+      name: 'Track',
+      uri: 'spotify:track:0DiWol3AO6WpXZgp0goxAV',
+    });
+    assert.equal(canonical.id, '0DiWol3AO6WpXZgp0goxAV');
+    assert.equal(
+      await resolveTrack({ id: 'spoofed-id', uri: 'spotify:track:0DiWol3AO6WpXZgp0goxAV' }),
+      null
+    );
+
+    // Regional flags and keycap emoji accepted; combining-mark graffiti still rejected
+    assert.equal(sanitizeEmoji('🇻🇪'), '🇻🇪');
+    assert.equal(sanitizeEmoji('1️⃣'), '1️⃣');
+    assert.notEqual(sanitizeEmoji('🎧\u0301'), '🎧\u0301');
+
+    // Host device validation, stale device/generation clear protection, & refusing to play without registered TV device
+    assert.equal(setHostDevice('x'.repeat(129)), false);
+    assert.equal(setHostDevice('   '), false);
+    assert.equal(setHostDevice('device-same'), true);
+    const oldGen = getHostDeviceGeneration();
+    assert.equal(setHostDevice('device-same'), true);
+    const newGen = getHostDeviceGeneration();
+    assert.notEqual(newGen, oldGen);
+    assert.equal(clearHostDevice('device-same', oldGen), false);
+    assert.equal(clearHostDevice('device-other', newGen), false);
+    assert.equal(clearHostDevice('device-same', newGen), true);
+    assert.equal(setHostDevice(null), true);
+    const playRes = await playTrackOnHost(
+      { uri: 'spotify:track:0DiWol3AO6WpXZgp0goxAV' },
+      Number.POSITIVE_INFINITY
+    );
+    assert.equal(playRes.ok, false);
+    assert.equal(playRes.reason, 'device-not-ready');
+
+    // Non-ASCII case folding & retention preservation for live idle participants
+    const db = new MusicDB(':memory:');
+    db.recordUser({ publicId: 'a1b2c3d4e5f60708', name: 'Ángel', emoji: '🎵', anonymous: false, ip: '127.0.0.1' });
+    assert.equal(db.isNameTaken('ángel'), true);
+    assert.equal(db.isNameTaken('A\u0301ngel'), true);
+    db.db.prepare('UPDATE users SET last_seen_at = 0 WHERE id = ?').run('a1b2c3d4e5f60708');
+    const kept = db.pruneRetention(1000, ['a1b2c3d4e5f60708']);
+    assert.equal(kept.deletedUsers, 0);
+    assert.equal(db.isNameTaken('Ángel'), true);
+    db.close();
+
+    // IPv4-mapped IPv6 normalization
+    assert.equal(normalizeIp('::ffff:127.0.0.1'), '127.0.0.1');
   });
 });

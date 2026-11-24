@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { JOIN_RATE_MAX, SEARCH_RATE_MAX, MUTATE_RATE_MAX } from '../config.js';
-import { searchTracks, providerMode } from '../spotify.js';
-import { auditLog, hashIp, makeIpLimiter } from '../security.js';
+import { searchTracks, resolveTrack, providerMode } from '../spotify.js';
+import { auditLog, getClientIp, hashIp, makeIpLimiter } from '../security.js';
 
 export function createRoomRouter(room, wsHub) {
   const router = Router();
@@ -11,7 +11,7 @@ export function createRoomRouter(room, wsHub) {
   const leaveLimiter = makeIpLimiter(60, 60_000, 'leave');
 
   router.post('/join', joinLimiter, (req, res) => {
-    const ip = req.ip || req.socket?.remoteAddress || '';
+    const ip = getClientIp(req);
     const client = room.join(req.body?.name, req.body?.emoji, ip);
     if (client.error) return res.status(client.status || 400).json({ error: client.error, code: client.code });
     auditLog('room.join', { ipHash: hashIp(ip), publicId: client.publicId, anonymous: client.anonymous });
@@ -30,7 +30,7 @@ export function createRoomRouter(room, wsHub) {
       const publicId = room.clients.get(clientId)?.publicId;
       wsHub.kickClientSockets(clientId);
       room.leave(clientId);
-      auditLog('room.leave', { ipHash: hashIp(req.ip), publicId });
+      auditLog('room.leave', { ipHash: hashIp(getClientIp(req)), publicId });
     }
     res.json({ ok: true });
   });
@@ -46,16 +46,32 @@ export function createRoomRouter(room, wsHub) {
     }
   });
 
-  router.post('/queue', mutateLimiter, (req, res) => {
-    const { clientId, track } = req.body || {};
-    const result = room.enqueue(clientId, track);
-    if (result.error) return res.status(400).json(result);
-    auditLog('queue.enqueue', {
-      ipHash: hashIp(req.ip),
-      publicId: room.clients.get(clientId)?.publicId,
-      trackId: track?.id,
-    });
-    res.json(result);
+  router.post('/queue', mutateLimiter, async (req, res, next) => {
+    try {
+      const { clientId, track } = req.body || {};
+      if (typeof clientId !== 'string' || !room.clients.has(clientId)) {
+        return res.status(400).json({ error: 'Debes entrar primero.' });
+      }
+      let resolved;
+      try {
+        resolved = await resolveTrack(track);
+      } catch {
+        return res.status(502).json({ error: 'No se pudo validar la canción en este momento.' });
+      }
+      if (!resolved) {
+        return res.status(400).json({ error: 'Track inválido.' });
+      }
+      const result = room.enqueue(clientId, resolved);
+      if (result.error) return res.status(400).json(result);
+      auditLog('queue.enqueue', {
+        ipHash: hashIp(getClientIp(req)),
+        publicId: room.clients.get(clientId)?.publicId,
+        trackId: resolved.id,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
   });
 
   router.post('/queue/cancel', mutateLimiter, (req, res) => {
@@ -63,7 +79,7 @@ export function createRoomRouter(room, wsHub) {
     const result = room.cancelQueued(clientId, qid);
     if (result.error) return res.status(400).json(result);
     auditLog('queue.cancel', {
-      ipHash: hashIp(req.ip),
+      ipHash: hashIp(getClientIp(req)),
       publicId: room.clients.get(clientId)?.publicId,
       qid,
     });

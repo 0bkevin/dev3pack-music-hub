@@ -32,7 +32,8 @@ export function PlayerApp() {
 
   let searchTimer = null;
   let searchRequest = null;
-  let lastSeenTrackId = null;
+  let lastRoomInstanceId = null;
+  let lastSkipSeq = null;
   let voteInFlight = false;
   const cancelingQids = new Set();
   let nameRef;
@@ -94,18 +95,26 @@ export function PlayerApp() {
   const likes = () => room.state()?.likes || 0;
 
   createEffect(() => {
-    const cur = current();
-    if (!cur) {
-      lastSeenTrackId = null;
+    const st = room.state();
+    if (!st) return;
+    const seq = st.lastSkip?.seq ?? 0;
+    const instId = st.roomInstanceId || null;
+    if (lastSkipSeq === null) {
+      lastRoomInstanceId = instId;
+      lastSkipSeq = seq;
       return;
     }
-    if (lastSeenTrackId && lastSeenTrackId !== cur.track.id && cur.reason === 'skipped') {
+    if (instId && lastRoomInstanceId && instId !== lastRoomInstanceId) {
+      lastRoomInstanceId = instId;
+      lastSkipSeq = 0;
+    }
+    if (seq > lastSkipSeq) {
+      lastSkipSeq = seq;
       toast.info(
         'Canción saltada por la sala',
-        `«${cur.skippedTrack || 'La pista anterior'}» alcanzó el límite de no me gusta.`
+        `«${st.lastSkip?.trackName || 'La pista anterior'}» alcanzó el límite de no me gusta.`
       );
     }
-    lastSeenTrackId = cur.track.id;
   });
 
   const isManualSearch = () => searchText().trim().length > 0;
@@ -137,8 +146,16 @@ export function PlayerApp() {
     function closeQueueOnEscape(event) {
       if (event.key === 'Escape') setQueueOpen(false);
     }
+    const mobileDrawerQuery = window.matchMedia('(max-width: 980px)');
+    const closeQueueOnDesktop = (event) => {
+      if (!event.matches) setQueueOpen(false);
+    };
     window.addEventListener('keydown', closeQueueOnEscape);
-    onCleanup(() => window.removeEventListener('keydown', closeQueueOnEscape));
+    mobileDrawerQuery.addEventListener('change', closeQueueOnDesktop);
+    onCleanup(() => {
+      window.removeEventListener('keydown', closeQueueOnEscape);
+      mobileDrawerQuery.removeEventListener('change', closeQueueOnDesktop);
+    });
   });
 
   function handleSearchInput(val) {

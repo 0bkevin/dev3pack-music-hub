@@ -1,19 +1,59 @@
-import { Show, For } from 'solid-js';
+import { Show, For, createEffect } from 'solid-js';
 import { Cover } from '../Cover.jsx';
 
 export function QueueRail(props) {
+  let railRef;
+  let closeBtnRef;
+  let prevFocused = null;
+  let wasOpen = false;
+
+  createEffect(() => {
+    const isOpen = props.open();
+    if (isOpen && !wasOpen) {
+      prevFocused = document.activeElement;
+      queueMicrotask(() => closeBtnRef?.focus());
+    } else if (!isOpen && wasOpen) {
+      if (prevFocused && typeof prevFocused.focus === 'function') {
+        prevFocused.focus();
+      }
+      prevFocused = null;
+    }
+    wasOpen = isOpen;
+  });
+
+  function trapDrawerFocus(event) {
+    if (!props.open() || event.key !== 'Tab' || !railRef || !window.matchMedia('(max-width: 980px)').matches) return;
+    const controls = railRef.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+    if (!controls.length) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <>
       <Show when={props.open()}>
         <div class="drawer-backdrop" onClick={props.onClose} />
       </Show>
 
-      <aside class={`queue-rail${props.open() ? ' open' : ''}`} id="queue-rail">
+      <aside
+        ref={(el) => { railRef = el; }}
+        class={`queue-rail${props.open() ? ' open' : ''}`}
+        id="queue-rail"
+        onKeyDown={trapDrawerFocus}
+      >
         <div class="rail-head">
           <h2 class="rail-title">A continuación</h2>
           <div class="rail-head-right">
             <span class="rail-badge">{props.queue().length}</span>
             <button
+              ref={(el) => { closeBtnRef = el; }}
               class="rail-close-btn"
               type="button"
               aria-label="Cerrar cola"

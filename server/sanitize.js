@@ -35,11 +35,18 @@ const BLOCKED_WORDS = new Set([
   'cadaver', 'sangre', 'bomba',
 ]);
 
+const CONFUSABLE_MAP = {
+  а: 'a', е: 'e', о: 'o', р: 'p', с: 'c', х: 'x', і: 'i', ї: 'i',
+  у: 'y', к: 'k', т: 't', м: 'm', н: 'h', в: 'b',
+  α: 'a', ε: 'e', ο: 'o', ρ: 'p', ι: 'i', κ: 'k', τ: 't', ν: 'v',
+};
+
 function foldForModeration(str) {
   return str
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
+    .replace(/[аеорсхіїуктмнвαεορικτν]/g, (ch) => CONFUSABLE_MAP[ch] || ch)
     .replace(/0/g, 'o')
     .replace(/[1!|]/g, 'i')
     .replace(/3/g, 'e')
@@ -52,7 +59,7 @@ function foldForModeration(str) {
 export function validateDisplayName(raw) {
   if (raw === undefined || raw === null) return { anonymous: true, name: '' };
   if (typeof raw !== 'string') return { error: 'Nombre inválido.' };
-  const clean = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  const clean = raw.normalize('NFC').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
   if (!clean) return { anonymous: true, name: '' };
 
   if (clean.length < MIN_NAME_LENGTH || clean.length > MAX_NAME_LENGTH) {
@@ -60,7 +67,7 @@ export function validateDisplayName(raw) {
       error: `El nombre debe tener entre ${MIN_NAME_LENGTH} y ${MAX_NAME_LENGTH} caracteres.`,
     };
   }
-  if (!VALID_NAME_CHARS.test(clean)) {
+  if (!VALID_NAME_CHARS.test(clean) || !/[\p{L}\p{N}]/u.test(clean)) {
     return { error: 'Usa solo letras, números y espacios en tu nombre.' };
   }
 
@@ -93,6 +100,8 @@ export const PREDEFINED_EMOJIS = [
 
 const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
+const FLAG_EMOJI_RE = /^\p{Regional_Indicator}{2}$/u;
+const KEYCAP_EMOJI_RE = /^[#*0-9]\uFE0F?\u20E3$/u;
 // Reject combining marks, tag characters (U+E0000-E007F), and format chars other than ZWJ (U+200D) / VS16 (U+FE0F)
 const DISALLOWED_EMOJI_CP = /[\u{E0000}-\u{E007F}\p{Mark}]/u;
 
@@ -101,8 +110,9 @@ export function randomEmoji() {
 }
 
 /**
- * Accepts any single valid Unicode emoji grapheme (including standard ZWJ sequences),
- * rejecting plain text, HTML, combining-mark graffiti, tag characters, or multi-emoji strings.
+ * Accepts any single valid Unicode emoji grapheme (including standard ZWJ sequences,
+ * regional flags, and keycap emoji), rejecting plain text, HTML, combining-mark graffiti,
+ * tag characters, or multi-emoji strings.
  */
 export function sanitizeEmoji(raw) {
   if (typeof raw !== 'string') return randomEmoji();
@@ -113,6 +123,7 @@ export function sanitizeEmoji(raw) {
   const segments = [...graphemeSegmenter.segment(trimmed)].map((s) => s.segment);
   if (segments.length !== 1) return randomEmoji();
   const seg = segments[0];
+  if (FLAG_EMOJI_RE.test(seg) || KEYCAP_EMOJI_RE.test(seg)) return seg;
   if (!EMOJI_RE.test(seg)) return randomEmoji();
   // Strip allowed VS16/ZWJ before checking for disallowed combining/tag/format code points
   const stripped = seg.replace(/[\uFE0F\u200D]/g, '');
@@ -166,16 +177,18 @@ export function sanitizeTrack(raw) {
     : 180_000;
   const durationMs = Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, Math.floor(rawDur)));
 
-  const uri = typeof raw.uri === 'string' && /^spotify:track:[A-Za-z0-9]{22}$/.test(raw.uri)
-    ? raw.uri
+  const uriMatch = typeof raw.uri === 'string'
+    ? raw.uri.match(/^spotify:track:([A-Za-z0-9]{22})$/)
     : null;
+  const uri = uriMatch ? uriMatch[0] : null;
+  const canonicalId = uriMatch ? uriMatch[1] : id;
 
   const hue = typeof raw.hue === 'number' && Number.isFinite(raw.hue)
     ? ((Math.floor(raw.hue) % 360) + 360) % 360
     : undefined;
 
   return {
-    id,
+    id: canonicalId,
     uri,
     name,
     artists,

@@ -23,6 +23,17 @@ export function CommandSearch(props) {
 
   const queuedIds = createMemo(() => new Set((props.queue?.() || []).map((q) => q.track.id)));
   const currentId = () => props.currentTrackId?.() || null;
+  const isTrackUnavailable = (track) =>
+    !track || currentId() === track.id || queuedIds().has(track.id) || submittingId() === track.id;
+
+  function findNextActionableIndex(list, start, step) {
+    if (!list.length) return 0;
+    for (let i = 0; i < list.length; i++) {
+      const idx = (start + step * i + list.length) % list.length;
+      if (!isTrackUnavailable(list[idx])) return idx;
+    }
+    return Math.min(Math.max(0, start), list.length - 1);
+  }
 
   async function runSearch(q) {
     const clean = q.trim() || DEFAULT_QUERY;
@@ -33,8 +44,9 @@ export function CommandSearch(props) {
     try {
       const { tracks: found } = await api(`/api/search?q=${encodeURIComponent(clean)}`, { signal: request.signal });
       if (request.signal.aborted) return;
-      setTracks(found || []);
-      setActiveIdx(0);
+      const list = found || [];
+      setTracks(list);
+      setActiveIdx(findNextActionableIndex(list, 0, 1));
     } catch (err) {
       if (!request.signal.aborted) {
         setTracks([]);
@@ -101,12 +113,12 @@ export function CommandSearch(props) {
     }
     if (e.key === 'ArrowDown' || (e.ctrlKey && e.key.toLowerCase() === 'n')) {
       e.preventDefault();
-      if (list.length) setActiveIdx((i) => (i + 1) % list.length);
+      if (list.length) setActiveIdx((i) => findNextActionableIndex(list, (i + 1) % list.length, 1));
       return;
     }
     if (e.key === 'ArrowUp' || (e.ctrlKey && e.key.toLowerCase() === 'p')) {
       e.preventDefault();
-      if (list.length) setActiveIdx((i) => (i - 1 + list.length) % list.length);
+      if (list.length) setActiveIdx((i) => findNextActionableIndex(list, (i - 1 + list.length) % list.length, -1));
       return;
     }
     if (e.key === 'Enter') {
@@ -229,8 +241,10 @@ export function CommandSearch(props) {
                       type="button"
                       role="option"
                       aria-selected={isSelected()}
+                      aria-disabled={isDisabled() ? 'true' : undefined}
+                      tabIndex={isDisabled() ? -1 : 0}
                       class={`cmd-row${isSelected() ? ' selected' : ''}${isDisabled() ? ' muted' : ''}`}
-                      onMouseEnter={() => setActiveIdx(idx())}
+                      onMouseEnter={() => { if (!isDisabled()) setActiveIdx(idx()); }}
                       onClick={() => propose(track)}
                     >
                       <Cover track={track} class="cmd-art" />

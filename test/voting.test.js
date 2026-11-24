@@ -148,9 +148,47 @@ describe('Room net voting, limits, and adversarial edge cases', () => {
     // Another user can still enqueue t4
     const u2 = room.join('Ana').id;
     assert.equal(room.enqueue(u2, makeTrack('t4')).ok, true);
+    // Re-enqueueing currently playing track returns "sonando ahora mismo", not replay cooldown
+    const sameNow = room.enqueue(u2, makeTrack('t1'));
+    assert.match(sameNow.error, /sonando ahora mismo/i);
     // Re-enqueueing t1 (already played) is blocked by 30m cooldown
     room.advance('ended');
     assert.ok(room.enqueue(u2, makeTrack('t1')).error);
+    clearTimeout(room.endTimer);
+  });
+
+  it('reports consistent track-changed error for stale votes while advance is in flight', () => {
+    const { room } = createTestRoom();
+    const host = room.join('Host').id;
+    const voter = room.join('Voter').id;
+    room.enqueue(host, makeTrack('t1'));
+    room.advancing = true;
+    room.advancingTrackId = 't1';
+
+    const stale = room.vote(voter, -1, 't1');
+    assert.equal(stale.error, 'La canción ya cambió.');
+    clearTimeout(room.endTimer);
+  });
+
+  it('recovers cleanly from finalizeTrack DB failure without wedging advancing state', async () => {
+    const fakeDb = {
+      getRecentPlayedCooldowns: () => new Map(),
+      isNameTaken: () => false,
+      recordUser: () => {},
+      recordTrackRequest: () => 1,
+      markTrackPlaying: () => {},
+      finalizeTrack: () => { throw new Error('disk full'); },
+    };
+    const room = new Room(() => {}, fakeDb);
+    const host = room.join('Host').id;
+    room.enqueue(host, makeTrack('t1'));
+    room.enqueue(host, makeTrack('t2'));
+    await new Promise((r) => setTimeout(r, 15));
+
+    await room.advance('ended');
+    assert.equal(room.advancing, false);
+    assert.equal(room.current.track.id, 't2');
+    assert.ok(room.snapshot().roomInstanceId);
     clearTimeout(room.endTimer);
   });
 

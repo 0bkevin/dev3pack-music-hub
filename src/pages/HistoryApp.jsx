@@ -1,5 +1,7 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
+import { createRoom } from '../lib/room.js';
 import { toast } from '../lib/sonner.js';
 import { Cover } from '../components/Cover.jsx';
 import { ChevronDownIcon, CrownIcon, SearchIcon } from '../components/Icons.jsx';
@@ -28,7 +30,9 @@ function fmtTime(ts) {
 }
 
 export function HistoryApp() {
+  const [session, setSession] = createSignal(loadSession());
   const [data, setData] = createSignal(null);
+  const [peopleStore, setPeopleStore] = createStore({ list: [] });
   const [loading, setLoading] = createSignal(true);
   const [activeTab, setActiveTab] = createSignal('tracks'); // 'tracks' | 'people'
   const [searchText, setSearchText] = createSignal('');
@@ -36,27 +40,44 @@ export function HistoryApp() {
   const [userTracks, setUserTracks] = createSignal({}); // userId -> TrackHistory[]
   const [loadingUserId, setLoadingUserId] = createSignal(null);
 
-  async function loadAll() {
-    setLoading(true);
+  const room = createRoom({
+    clientId: () => session()?.clientId || null,
+    onSessionExpired: () => {
+      saveSession(null);
+      setSession(null);
+    },
+  });
+
+  async function loadAll(silent = false) {
+    if (!silent) setLoading(true);
     try {
       const res = await api('/api/history');
       setData(res);
+      setPeopleStore(
+        'list',
+        reconcile((res.people || []).map((p, i) => ({ ...p, rank: i + 1 })), { key: 'id' })
+      );
+      const openId = openUserId();
+      if (openId) fetchUserHistory(openId, { silent: true });
     } catch (err) {
-      toast.error('No se pudo cargar el historial', err.message);
+      if (!silent) toast.error('No se pudo cargar el historial', err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
-  async function fetchUserHistory(userId) {
-    setLoadingUserId(userId);
+  async function fetchUserHistory(userId, { silent = false } = {}) {
+    const hasCached = Boolean(userTracks()[userId]?.length);
+    if (!silent && !hasCached) setLoadingUserId(userId);
     try {
       const res = await api(`/api/history/user/${encodeURIComponent(userId)}`);
       setUserTracks((prev) => ({ ...prev, [userId]: res.history || [] }));
     } catch (err) {
-      toast.error('No se pudo cargar el historial del participante', err.message);
+      if (!silent) toast.error('No se pudo cargar el historial del participante', err.message);
     } finally {
-      setLoadingUserId((cur) => (cur === userId ? null : cur));
+      if (!silent && !hasCached) {
+        setLoadingUserId((cur) => (cur === userId ? null : cur));
+      }
     }
   }
 
@@ -79,10 +100,11 @@ export function HistoryApp() {
   }
 
   async function ensureHistorySession() {
-    let s = loadSession();
+    let s = session() || loadSession();
     if (s?.clientId) return s;
     s = await api('/api/join', { method: 'POST', body: JSON.stringify({}) });
     saveSession(s);
+    setSession(s);
     return s;
   }
 
@@ -97,6 +119,7 @@ export function HistoryApp() {
       } catch (err) {
         if (err.message.includes('entrar primero')) {
           saveSession(null);
+          setSession(null);
           s = await ensureHistorySession();
           await api('/api/queue', {
             method: 'POST',
@@ -107,7 +130,7 @@ export function HistoryApp() {
         }
       }
       toast.success(`«${track.name}» agregada`);
-      loadAll();
+      loadAll(true);
       return true;
     } catch (err) {
       toast.error('No se pudo agregar a la cola', err.message);
@@ -117,7 +140,7 @@ export function HistoryApp() {
 
   onMount(() => {
     loadAll();
-    const timer = setInterval(loadAll, 15_000);
+    const timer = setInterval(() => loadAll(true), 15_000);
     onCleanup(() => {
       clearInterval(timer);
     });
@@ -142,7 +165,7 @@ export function HistoryApp() {
     ];
   });
 
-  const people = () => data()?.people || [];
+  const people = () => peopleStore.list;
   const fullHistory = () => data()?.history || [];
   const totals = () => data()?.totals || { totalTracks: 0, totalRequesters: 0 };
 
@@ -388,7 +411,7 @@ export function HistoryApp() {
                 }
               >
                 <For each={filteredPeople()}>
-                  {(person, idx) => {
+                  {(person) => {
                     const isOpen = () => openUserId() === person.id;
                     const tracks = () => userTracks()[person.id] || [];
                     const isBusy = () => loadingUserId() === person.id;
@@ -401,7 +424,7 @@ export function HistoryApp() {
                           aria-expanded={isOpen()}
                           onClick={() => toggleParticipant(person.id)}
                         >
-                          <span class="acc-rank tabular">#{idx() + 1}</span>
+                          <span class="acc-rank tabular">#{person.rank}</span>
                           <span
                             class="acc-avatar"
                             style={{ background: trackGradient({ id: person.id }) }}
@@ -468,8 +491,8 @@ export function HistoryApp() {
       </div>
 
       <CommandSearch
-        queue={() => []}
-        currentTrackId={() => null}
+        queue={() => room.state()?.queue || []}
+        currentTrackId={() => room.state()?.current?.track?.id || null}
         onEnqueue={enqueueFromHistory}
         onNotify={(msg) => toast.error('Error de búsqueda', msg)}
       />

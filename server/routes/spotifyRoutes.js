@@ -7,12 +7,15 @@ import {
   getHostAccessToken,
   verifyHostSession,
   setHostDevice,
-  disconnectHost,
+  getHostDeviceGeneration,
+  clearHostDevice,
+  pauseAndDisconnectHost,
   getHostStatus,
   getPublicHostStatus,
 } from '../spotify.js';
 import {
   auditLog,
+  getClientIp,
   hashIp,
   isHttpsReq,
   isLoopback,
@@ -22,6 +25,7 @@ import {
 } from '../security.js';
 
 const OAUTH_COOKIE = 'd3m_spotify_oauth';
+const MAX_PENDING_PREAUTH = 100;
 
 function oauthCookie(req, value, maxAge) {
   return `${OAUTH_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/callback; Max-Age=${maxAge}${isHttpsReq(req) ? '; Secure' : ''}`;
@@ -45,7 +49,7 @@ export function createSpotifyRoutes(room) {
 
   function requireHostSession(req, res, next) {
     if (!hasValidHostCookie(req)) {
-      auditLog('host.auth_denied', { path: req.path, ipHash: hashIp(req.ip) });
+      auditLog('host.auth_denied', { path: req.path, ipHash: hashIp(getClientIp(req)) });
       return res.status(401).json({ error: 'Solo el host autenticado puede acceder a este recurso.' });
     }
     next();
@@ -62,16 +66,20 @@ export function createSpotifyRoutes(room) {
     }
     const key = req.headers['x-admin-key'] || req.body?.key || '';
     if (!safeEqual(String(key), HOST_ADMIN_SECRET)) {
-      auditLog('host.authorize_failed', { ipHash: hashIp(req.ip) });
+      auditLog('host.authorize_failed', { ipHash: hashIp(getClientIp(req)) });
       return res.status(403).json({ error: 'Clave de host inválida.' });
     }
     const token = crypto.randomBytes(24).toString('hex');
+    prunePreAuth();
     pendingPreAuth.set(token, Date.now() + PREAUTH_TTL_MS);
+    while (pendingPreAuth.size > MAX_PENDING_PREAUTH) {
+      pendingPreAuth.delete(pendingPreAuth.keys().next().value);
+    }
     res.setHeader(
       'Set-Cookie',
       `${PREAUTH_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=300${isHttpsReq(req) ? '; Secure' : ''}`
     );
-    auditLog('host.authorize_ok', { ipHash: hashIp(req.ip) });
+    auditLog('host.authorize_ok', { ipHash: hashIp(getClientIp(req)) });
     res.json({ ok: true, loginUrl: '/api/spotify/login' });
   });
 
@@ -80,11 +88,11 @@ export function createSpotifyRoutes(room) {
       ? hasValidHostCookie(req) || consumePreAuthCookie(req)
       : (!TRUST_PROXY && isLoopback(req)) || hasValidHostCookie(req);
     if (!authorized) {
-      auditLog('host.login_denied', { ipHash: hashIp(req.ip) });
+      auditLog('host.login_denied', { ipHash: hashIp(getClientIp(req)) });
       return res.status(403).send('Acceso restringido al host. Autoriza primero vía POST /api/spotify/authorize o desde 127.0.0.1.');
     }
     try {
-      auditLog('host.oauth_started', { ipHash: hashIp(req.ip) });
+      auditLog('host.oauth_started', { ipHash: hashIp(getClientIp(req)) });
       const url = new URL(getAuthUrl());
       res.setHeader('Set-Cookie', oauthCookie(req, url.searchParams.get('state'), 600));
       res.redirect(url.toString());
@@ -93,29 +101,52 @@ export function createSpotifyRoutes(room) {
     }
   });
 
-  apiRouter.get('/token', hostApiLimiter, requireHostSession, async (_req, res) => {
-    const accessToken = await getHostAccessToken();
-    if (!accessToken) return res.status(401).json({ error: 'Host de Spotify no conectado.' });
-    res.json({ accessToken });
-  });
-
-  apiRouter.post('/device', hostApiLimiter, requireHostSession, async (req, res) => {
-    const { deviceId } = req.body || {};
-    if (typeof deviceId !== 'string' || !deviceId.trim()) {
-      return res.status(400).json({ error: 'deviceId requerido.' });
+  apiRouter.get('/token', hostApiLimiter, requireHostSession, async (_req, res, next) => {
+    try {
+      const accessToken = await getHostAccessToken();
+      if (!accessToken) return res.status(401).json({ error: 'Host de Spotify no conectado.' });
+      res.json({ accessToken });
+    } catch (err) {
+      next(err);
     }
-    setHostDevice(deviceId);
-    room.emitState();
-    await room.syncCurrentPlayback();
-    res.json({ ok: true, host: getHostStatus() });
   });
 
-  apiRouter.post('/disconnect', hostApiLimiter, requireHostSession, (req, res) => {
-    disconnectHost();
-    res.setHeader('Set-Cookie', `${HOST_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
-    auditLog('host.disconnected', { ipHash: hashIp(req.ip) });
-    room.emitState();
-    res.json({ ok: true });
+  apiRouter.post('/device', hostApiLimiter, requireHostSession, async (req, res, next) => {
+    try {
+      const { deviceId } = req.body || {};
+      if (typeof deviceId !== 'string' || !setHostDevice(deviceId)) {
+        return res.status(400).json({ error: 'deviceId inválido (1-128 caracteres).' });
+      }
+      const deviceGeneration = getHostDeviceGeneration();
+      room.emitState(true);
+      const playback = await room.syncCurrentPlayback();
+      res.json({ ok: true, deviceGeneration, host: getHostStatus(), playback });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  apiRouter.delete('/device', hostApiLimiter, requireHostSession, (req, res) => {
+    const rawId = req.body?.deviceId ?? req.query?.deviceId ?? null;
+    const rawGen = req.body?.gen ?? req.query?.gen ?? null;
+    const expectedId = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : null;
+    const expectedGen = rawGen !== null && rawGen !== undefined && rawGen !== '' ? Number(rawGen) : null;
+    const cleared = clearHostDevice(expectedId, expectedGen);
+    if (cleared) room.emitState(true);
+    res.json({ ok: true, cleared, host: getHostStatus() });
+  });
+
+  apiRouter.post('/disconnect', hostApiLimiter, requireHostSession, async (req, res, next) => {
+    try {
+      await pauseAndDisconnectHost();
+      const secureFlag = isHttpsReq(req) ? '; Secure' : '';
+      res.setHeader('Set-Cookie', `${HOST_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureFlag}`);
+      auditLog('host.disconnected', { ipHash: hashIp(getClientIp(req)) });
+      room.emitState(true);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
   });
 
   const callbackMiddleware = [
@@ -125,7 +156,7 @@ export function createSpotifyRoutes(room) {
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('Set-Cookie', oauthCookie(req, '', 0));
       if (error) {
-        auditLog('host.oauth_denied', { ipHash: hashIp(req.ip) });
+        auditLog('host.oauth_denied', { ipHash: hashIp(getClientIp(req)) });
         return res.redirect('/screen?spotify_error=auth_denied');
       }
       if (typeof code !== 'string' || typeof state !== 'string') {
@@ -139,15 +170,15 @@ export function createSpotifyRoutes(room) {
         const secureFlag = isHttpsReq(req) ? '; Secure' : '';
         res.setHeader('Set-Cookie', [
           `${HOST_COOKIE}=${encodeURIComponent(sessionToken)}; HttpOnly; SameSite=Lax; Path=/${secureFlag}`,
-          `${PREAUTH_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`,
+          `${PREAUTH_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureFlag}`,
           oauthCookie(req, '', 0),
         ]);
-        auditLog('host.oauth_connected', { ipHash: hashIp(req.ip) });
+        auditLog('host.oauth_connected', { ipHash: hashIp(getClientIp(req)) });
         room.emitState();
         res.redirect('/screen');
       } catch (e) {
         const codeName = e.message === 'oauth_state_invalid' ? 'state_invalid' : 'exchange_failed';
-        auditLog('host.oauth_failed', { reason: codeName, ipHash: hashIp(req.ip) });
+        auditLog('host.oauth_failed', { reason: codeName, ipHash: hashIp(getClientIp(req)) });
         res.redirect(`/screen?spotify_error=${codeName}`);
       }
     },
