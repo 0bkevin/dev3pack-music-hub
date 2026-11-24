@@ -42,6 +42,13 @@ export function createRoom({ clientId = () => null, onSessionExpired, onReaction
           onReaction?.(msg);
           return;
         }
+        if (msg.type === 'vote-totals') {
+          const { type, trackId, ...totals } = msg;
+          setState((previous) => (
+            previous?.current?.track?.id === trackId ? { ...previous, ...totals } : previous
+          ));
+          return;
+        }
         if (msg.type === 'state') {
           const nextId = msg.current?.track?.id || null;
           // Only reset myVote when transitioning between tracks (not on initial connect, which races with 'you')

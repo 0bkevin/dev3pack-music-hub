@@ -1,4 +1,5 @@
-import { createSignal, createEffect, onMount, onCleanup } from 'solid-js';
+import { createSignal, createMemo, createEffect, onMount, onCleanup } from 'solid-js';
+import { api } from './api.js';
 
 async function fetchHostToken() {
   const res = await fetch('/api/spotify/token');
@@ -12,44 +13,54 @@ export function createSpotifyHostPlayer({ host, onError }) {
   const [unlocked, setUnlocked] = createSignal(false);
   const [paused, setPaused] = createSignal(false);
   const [sdkReady, setSdkReady] = createSignal(Boolean(window._spSdkReady));
+  const [isHost, setIsHost] = createSignal(null);
+  const [retry, setRetry] = createSignal(0);
 
   let player = null;
-  let initialized = false;
+  const configured = createMemo(() => Boolean(host()?.configured));
+  const connected = createMemo(() => Boolean(host()?.connected));
 
   createEffect(() => {
-    const connected = Boolean(host()?.connected);
-    if (!connected) {
-      if (player) {
-        player.disconnect();
-        player = null;
-      }
-      initialized = false;
-      setDeviceId(null);
-      setUnlocked(false);
-      setPaused(false);
-      return;
-    }
+    retry();
+    setIsHost(null);
+    if (!connected()) return;
+    const request = new AbortController();
+    onCleanup(() => request.abort());
+    api('/api/spotify/status', { signal: request.signal }).then(({ isHost }) => {
+      if (!request.signal.aborted) setIsHost(Boolean(isHost));
+    }).catch(() => {
+      if (!request.signal.aborted) onError?.('No se pudo verificar la sesión de Spotify.', 5000);
+    });
+  });
 
-    if (initialized || !sdkReady() || !window.Spotify) return;
-    initialized = true;
+  function registerDevice(id) {
+    return api('/api/spotify/device', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: id }),
+    });
+  }
 
-    player = new window.Spotify.Player({
+  createEffect(() => {
+    if (!connected() || !isHost() || !sdkReady() || !window.Spotify) return;
+    const activePlayer = new window.Spotify.Player({
       name: 'Dev3pack Music TV',
       getOAuthToken: async (cb) => {
-        const token = await fetchHostToken();
+        const token = await fetchHostToken().catch(() => null);
+        if (player !== activePlayer) return;
         if (token) cb(token);
         else onError?.('Sesión de Spotify del host expirada. Reconecta desde este dispositivo.', 5000);
       },
       volume: 0.85,
     });
 
+    player = activePlayer;
     player.addListener('ready', async ({ device_id }) => {
-      setDeviceId(device_id);
-      await fetch('/api/spotify/device', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: device_id }),
-      });
+      try {
+        await registerDevice(device_id);
+        if (player === activePlayer) setDeviceId(device_id);
+      } catch {
+        if (player === activePlayer) onError?.('No se pudo registrar el reproductor de Spotify.', 5000);
+      }
     });
 
     player.addListener('not_ready', () => setDeviceId(null));
@@ -60,7 +71,18 @@ export function createSpotifyHostPlayer({ host, onError }) {
     player.addListener('authentication_error', ({ message }) => onError?.(`Auth Spotify: ${message}`, 4500));
     player.addListener('account_error', () => onError?.('Se requiere Spotify Premium para reproducir audio', 5000));
 
-    player.connect();
+    Promise.resolve(player.connect()).then((ok) => {
+      if (ok === false && player === activePlayer) onError?.('No se pudo iniciar el reproductor de Spotify.', 5000);
+    }).catch(() => {
+      if (player === activePlayer) onError?.('No se pudo iniciar el reproductor de Spotify.', 5000);
+    });
+    onCleanup(() => {
+      player = null;
+      activePlayer.disconnect();
+      setDeviceId(null);
+      setUnlocked(false);
+      setPaused(false);
+    });
   });
 
   onMount(() => {
@@ -68,35 +90,32 @@ export function createSpotifyHostPlayer({ host, onError }) {
     window.addEventListener('spotify-sdk-ready', onSdk);
     onCleanup(() => {
       window.removeEventListener('spotify-sdk-ready', onSdk);
-      player?.disconnect?.();
     });
   });
 
   async function handleAction() {
-    const h = host();
-    if (!h?.configured) return;
-    if (!h.connected) {
+    if (!configured()) return;
+    if (!connected()) {
       location.href = '/api/spotify/login';
       return;
     }
-    if (player) {
-      if (typeof player.activateElement === 'function') {
-        await player.activateElement().catch(() => {});
-      }
+    if (isHost() === false || unlocked()) return;
+    if (!player || !deviceId()) {
+      setRetry((count) => count + 1);
+      return;
+    }
+    try {
+      await player.activateElement?.();
+      await registerDevice(deviceId());
       setUnlocked(true);
-      if (deviceId()) {
-        await fetch('/api/spotify/device', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId: deviceId() }),
-        });
-      }
+    } catch {
+      onError?.('No se pudo activar el sonido. Intenta de nuevo.', 5000);
     }
   }
 
   const buttonLabel = () => {
-    const h = host();
-    if (!h?.connected) return 'Conectar Spotify Premium';
+    if (!connected()) return 'Conectar Spotify Premium';
+    if (isHost() === false) return 'Spotify conectado en otra pantalla';
     if (unlocked() && deviceId()) return '🔊 Spotify conectado';
     if (deviceId()) return '🔊 Activar sonido';
     return 'Conectando reproductor…';

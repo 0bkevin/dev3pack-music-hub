@@ -51,11 +51,12 @@ All tunables live in [`.env.example`](.env.example). Defaults:
 - **Queue limits**: `ENQUEUE_MAX_PER_WINDOW=3` songs per `ENQUEUE_WINDOW_MINUTES=10`, `MAX_TRACK_MINUTES=7`, `REPLAY_COOLDOWN_MINUTES=30`.
 - **Auto-shuffle**: empty queue picks a random Spotify track outside the replay cooldown.
 - **History & SQLite**: `/history` shows the Top 3 podium, full playback history, and per-participant accordion backed by `node:sqlite` (`DB_PATH`).
+- **Shared Wi-Fi**: `MAX_WS_PER_IP` defaults to 40. Raise it and `JOIN_RATE_MAX_PER_IP` to accommodate the expected number of participants if they share a public IP.
 - **Health check**: `GET /healthz`.
 
 ## Deployment
 
-Room state and WebSockets live in memory — deploy as a **single always-on Node.js instance** with HTTPS (Railway, Render, Fly.io, VPS + Caddy, or local + Cloudflare Tunnel). Do not use serverless hosts (Vercel/Netlify).
+Room state and WebSockets live in memory — deploy as a **single always-on Node.js instance** with HTTPS (Railway, Render, Fly.io, VPS + Caddy, or local + Cloudflare Tunnel). Do not use serverless hosts (Vercel/Netlify). On restart, history is preserved and any previously queued or playing tracks are marked interrupted.
 
 Required production env vars:
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI=https://<domain>/callback`

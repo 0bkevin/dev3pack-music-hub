@@ -165,6 +165,10 @@ export class MusicDB {
       .run(historyId);
   }
 
+  markInterruptedTracks() {
+    this.db.exec("UPDATE track_history SET status = 'interrupted' WHERE status IN ('queued', 'playing')");
+  }
+
   getRecentPlayedCooldowns(windowMs) {
     const cutoff = Date.now() - windowMs;
     const rows = this.db

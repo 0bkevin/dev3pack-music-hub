@@ -9,6 +9,7 @@ import { Toaster } from '../components/Toaster.jsx';
 const STATUS_LABELS = {
   playing: 'Sonando',
   queued: 'En cola',
+  interrupted: 'Interrumpida',
   played: 'Reproducida',
   skipped: 'Saltada',
 };

@@ -9,6 +9,7 @@ import { searchDemoCatalog, randomDemoTrack } from './demoCatalog.js';
 
 const SCOPES = [
   'streaming',
+  'user-read-email',
   'user-read-private',
   'user-read-playback-state',
   'user-modify-playback-state',
@@ -50,6 +51,10 @@ function basicAuthHeader() {
   return 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 }
 
+function spotifyFetch(url, options) {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(8000) });
+}
+
 async function spSearchFetch(url, opts = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const now = Date.now();
@@ -58,7 +63,7 @@ async function spSearchFetch(url, opts = {}) {
     }
     if (spSearchCallTimes.length < SP_MAX_SEARCH_CALLS) {
       spSearchCallTimes.push(Date.now());
-      return fetch(url, opts);
+      return spotifyFetch(url, opts);
     }
     const wait = Math.min(SP_WINDOW_MS, SP_WINDOW_MS - (now - spSearchCallTimes[0]) + 60);
     await new Promise((r) => setTimeout(r, wait));
@@ -71,7 +76,7 @@ async function getAppToken() {
   if (appTokenInFlight) return appTokenInFlight;
 
   appTokenInFlight = (async () => {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
+    const res = await spotifyFetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -102,8 +107,10 @@ export async function getHostAccessToken() {
   }
   if (refreshInFlight) return refreshInFlight;
 
-  refreshInFlight = (async () => {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
+  const session = host.sessionToken;
+  const refreshToken = host.refreshToken;
+  const refresh = (async () => {
+    const res = await spotifyFetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -111,24 +118,27 @@ export async function getHostAccessToken() {
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: host.refreshToken,
+        refresh_token: refreshToken,
       }),
     });
+    if (host.sessionToken !== session) return null;
     if (!res.ok) {
-      disconnectHost();
+      if (res.status === 400 || res.status === 401) disconnectHost();
       return null;
     }
     const data = await res.json();
+    if (host.sessionToken !== session) return null;
     host.accessToken = data.access_token;
     if (data.refresh_token) host.refreshToken = data.refresh_token;
     host.expiresAt = Date.now() + data.expires_in * 1000;
     return host.accessToken;
-  })();
+  })().catch(() => null);
+  refreshInFlight = refresh;
 
   try {
-    return await refreshInFlight;
+    return await refresh;
   } finally {
-    refreshInFlight = null;
+    if (refreshInFlight === refresh) refreshInFlight = null;
   }
 }
 
@@ -161,7 +171,7 @@ export async function exchangeCode(code, state) {
   }
   pendingOAuthStates.delete(state);
 
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+  const res = await spotifyFetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -178,20 +188,22 @@ export async function exchangeCode(code, state) {
     throw new Error(`oauth_exchange_failed_${res.status}`);
   }
   const data = await res.json();
-  host.accessToken = data.access_token;
-  host.refreshToken = data.refresh_token;
-  host.expiresAt = Date.now() + data.expires_in * 1000;
-  host.sessionToken = crypto.randomBytes(32).toString('hex');
-
-  const meRes = await fetch('https://api.spotify.com/v1/me', {
-    headers: { Authorization: `Bearer ${host.accessToken}` },
+  const meRes = await spotifyFetch('https://api.spotify.com/v1/me', {
+    headers: { Authorization: `Bearer ${data.access_token}` },
   });
-  if (meRes.ok) {
-    const me = await meRes.json();
-    host.user = me.display_name || me.id || 'Host';
-    host.product = me.product || null;
-  }
-  return { sessionToken: host.sessionToken, status: getHostStatus() };
+  if (!meRes.ok) throw new Error(`oauth_profile_failed_${meRes.status}`);
+  const me = await meRes.json();
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  disconnectHost();
+  Object.assign(host, {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+    user: me.display_name || me.id || 'Host',
+    product: me.product || null,
+    sessionToken,
+  });
+  return { sessionToken, status: getHostStatus() };
 }
 
 export function verifyHostSession(token) {
@@ -207,6 +219,7 @@ export function setHostDevice(deviceId) {
 }
 
 export function disconnectHost() {
+  refreshInFlight = null;
   host.accessToken = null;
   host.refreshToken = null;
   host.expiresAt = 0;
@@ -245,7 +258,7 @@ export async function playTrackOnHost(track, positionMs = 0) {
   const url = new URL('https://api.spotify.com/v1/me/player/play');
   if (host.deviceId) url.searchParams.set('device_id', host.deviceId);
 
-  const res = await fetch(url, {
+  const res = await spotifyFetch(url, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -311,8 +324,7 @@ export async function randomTrack(excludeIds = new Set()) {
       if (!res.ok) continue;
       const items = (await res.json()).tracks?.items || [];
       const fresh = items.filter((t) => !excludeIds.has(t.id));
-      const pool = fresh.length ? fresh : items;
-      if (pool.length) return normalize(pool[Math.floor(Math.random() * pool.length)]);
+      if (fresh.length) return normalize(fresh[Math.floor(Math.random() * fresh.length)]);
     } catch {
       continue;
     }

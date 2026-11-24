@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { HOST_ADMIN_SECRET, HOST_COOKIE, PREAUTH_COOKIE, PREAUTH_TTL_MS } from '../config.js';
+import { HOST_ADMIN_SECRET, HOST_COOKIE, PREAUTH_COOKIE, PREAUTH_TTL_MS, TRUST_PROXY } from '../config.js';
 import {
   getAuthUrl,
   exchangeCode,
@@ -20,6 +20,12 @@ import {
   parseCookies,
   safeEqual,
 } from '../security.js';
+
+const OAUTH_COOKIE = 'd3m_spotify_oauth';
+
+function oauthCookie(req, value, maxAge) {
+  return `${OAUTH_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/callback; Max-Age=${maxAge}${isHttpsReq(req) ? '; Secure' : ''}`;
+}
 
 export function createSpotifyRoutes(room) {
   const apiRouter = Router();
@@ -72,14 +78,16 @@ export function createSpotifyRoutes(room) {
   apiRouter.get('/login', authLimiter, (req, res) => {
     const authorized = HOST_ADMIN_SECRET
       ? hasValidHostCookie(req) || consumePreAuthCookie(req)
-      : isLoopback(req) || hasValidHostCookie(req);
+      : (!TRUST_PROXY && isLoopback(req)) || hasValidHostCookie(req);
     if (!authorized) {
       auditLog('host.login_denied', { ipHash: hashIp(req.ip) });
       return res.status(403).send('Acceso restringido al host. Autoriza primero vía POST /api/spotify/authorize o desde 127.0.0.1.');
     }
     try {
       auditLog('host.oauth_started', { ipHash: hashIp(req.ip) });
-      res.redirect(getAuthUrl());
+      const url = new URL(getAuthUrl());
+      res.setHeader('Set-Cookie', oauthCookie(req, url.searchParams.get('state'), 600));
+      res.redirect(url.toString());
     } catch {
       res.status(400).send('Spotify no está configurado en el servidor.');
     }
@@ -114,6 +122,8 @@ export function createSpotifyRoutes(room) {
     authLimiter,
     async (req, res) => {
       const { code, state, error } = req.query;
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Set-Cookie', oauthCookie(req, '', 0));
       if (error) {
         auditLog('host.oauth_denied', { ipHash: hashIp(req.ip) });
         return res.redirect('/screen?spotify_error=auth_denied');
@@ -121,12 +131,16 @@ export function createSpotifyRoutes(room) {
       if (typeof code !== 'string' || typeof state !== 'string') {
         return res.redirect('/screen?spotify_error=invalid_callback');
       }
+      if (!safeEqual(state, parseCookies(req.headers.cookie)[OAUTH_COOKIE])) {
+        return res.redirect('/screen?spotify_error=state_invalid');
+      }
       try {
         const { sessionToken } = await exchangeCode(code, state);
         const secureFlag = isHttpsReq(req) ? '; Secure' : '';
         res.setHeader('Set-Cookie', [
           `${HOST_COOKIE}=${encodeURIComponent(sessionToken)}; HttpOnly; SameSite=Lax; Path=/${secureFlag}`,
           `${PREAUTH_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`,
+          oauthCookie(req, '', 0),
         ]);
         auditLog('host.oauth_connected', { ipHash: hashIp(req.ip) });
         room.emitState();

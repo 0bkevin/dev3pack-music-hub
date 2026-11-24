@@ -15,18 +15,24 @@ const DEMO_CATALOG = [
   { id: 'demo-12', name: 'Clair de Lune', artists: 'Flight Facilities', album: 'Down to Earth', durationMs: 272000, hue: 175 },
 ].map((t) => ({ ...t, uri: null, imageUrl: null, spotifyUrl: null, source: 'demo' }));
 
+const GENRE_MATCHES = {
+  electronic: ['demo-1', 'demo-2', 'demo-9', 'demo-12'],
+  rock: ['demo-6'],
+};
+
 export function searchDemoCatalog(query) {
-  const q = query.toLowerCase();
-  const hits = DEMO_CATALOG.filter(
+  const q = query.trim().toLowerCase();
+  const genreIds = Object.hasOwn(GENRE_MATCHES, q) ? GENRE_MATCHES[q] : [];
+  return DEMO_CATALOG.filter(
     (t) =>
       t.name.toLowerCase().includes(q) ||
       t.artists.toLowerCase().includes(q) ||
-      t.album.toLowerCase().includes(q)
+      t.album.toLowerCase().includes(q) ||
+      genreIds.includes(t.id)
   );
-  return hits.length ? hits : DEMO_CATALOG.slice(0, 8);
 }
 
 export function randomDemoTrack(excludeIds = new Set()) {
   const pool = DEMO_CATALOG.filter((t) => !excludeIds.has(t.id));
-  return pool[Math.floor(Math.random() * pool.length)] || DEMO_CATALOG[0];
+  return pool[Math.floor(Math.random() * pool.length)] || null;
 }

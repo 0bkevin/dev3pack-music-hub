@@ -31,6 +31,7 @@ export function PlayerApp() {
   const [queueOpen, setQueueOpen] = createSignal(false);
 
   let searchTimer = null;
+  let searchRequest = null;
   let lastSeenTrackId = null;
   let voteInFlight = false;
   const cancelingQids = new Set();
@@ -39,6 +40,7 @@ export function PlayerApp() {
 
   onCleanup(() => {
     clearTimeout(searchTimer);
+    searchRequest?.abort();
   });
 
   async function joinRoom(name, emoji, silent = false) {
@@ -113,22 +115,37 @@ export function PlayerApp() {
   async function fetchTracks(query) {
     const clean = query.trim();
     if (!clean) return;
+    searchRequest?.abort();
+    const request = new AbortController();
+    searchRequest = request;
     setSearching(true);
     try {
-      const { tracks } = await api(`/api/search?q=${encodeURIComponent(clean)}`);
-      setResults(tracks || []);
+      const { tracks } = await api(`/api/search?q=${encodeURIComponent(clean)}`, { signal: request.signal });
+      if (!request.signal.aborted) setResults(tracks || []);
     } catch (err) {
-      toast.error('Error al buscar canciones', err.message);
+      if (!request.signal.aborted) {
+        setResults([]);
+        toast.error('Error al buscar canciones', err.message);
+      }
     } finally {
-      setSearching(false);
+      if (!request.signal.aborted) setSearching(false);
     }
   }
 
   onMount(() => fetchTracks(activeMood()));
+  onMount(() => {
+    function closeQueueOnEscape(event) {
+      if (event.key === 'Escape') setQueueOpen(false);
+    }
+    window.addEventListener('keydown', closeQueueOnEscape);
+    onCleanup(() => window.removeEventListener('keydown', closeQueueOnEscape));
+  });
 
   function handleSearchInput(val) {
     setSearchText(val);
     clearTimeout(searchTimer);
+    searchRequest?.abort();
+    setSearching(true);
     if (!val.trim()) {
       fetchTracks(activeMood());
       return;
@@ -144,6 +161,7 @@ export function PlayerApp() {
   }
 
   function selectMood(mood) {
+    clearTimeout(searchTimer);
     setActiveMood(mood);
     setSearchText('');
     fetchTracks(mood);
@@ -205,7 +223,8 @@ export function PlayerApp() {
       openJoinOverlay();
       return;
     }
-    if (!current() || voteInFlight) return;
+    const trackId = current()?.track?.id;
+    if (!trackId || voteInFlight) return;
     voteInFlight = true;
     const next = room.myVote() === value ? 0 : value;
     try {
@@ -214,10 +233,12 @@ export function PlayerApp() {
         body: JSON.stringify({
           clientId: s.clientId,
           vote: next,
-          trackId: current()?.track?.id || null,
+          trackId,
         }),
       });
-      room.setMyVote(res.myVote ?? next);
+      if (current()?.track?.id === trackId && session()?.clientId === s.clientId) {
+        room.setMyVote(res.myVote ?? next);
+      }
     } catch (err) {
       toast.error('No se pudo registrar tu voto', err.message);
     } finally {
@@ -235,7 +256,7 @@ export function PlayerApp() {
 
   return (
     <>
-      <div class="app-root">
+      <div class="app-root" attr:inert={session()?.clientId ? undefined : ''}>
         <div class="ambient-backdrop">
           <div class="ambient-fallback" />
           <div

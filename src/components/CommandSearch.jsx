@@ -15,27 +15,33 @@ export function CommandSearch(props) {
   const [submittingId, setSubmittingId] = createSignal(null);
 
   let inputRef;
+  let dialogRef;
   let listRef;
   let searchTimer = null;
   let prevFocused = null;
-  let requestSeq = 0;
+  let searchRequest = null;
 
   const queuedIds = createMemo(() => new Set((props.queue?.() || []).map((q) => q.track.id)));
   const currentId = () => props.currentTrackId?.() || null;
 
   async function runSearch(q) {
     const clean = q.trim() || DEFAULT_QUERY;
-    const seq = ++requestSeq;
+    searchRequest?.abort();
+    const request = new AbortController();
+    searchRequest = request;
     setLoading(true);
     try {
-      const { tracks: found } = await api(`/api/search?q=${encodeURIComponent(clean)}`);
-      if (seq !== requestSeq) return;
+      const { tracks: found } = await api(`/api/search?q=${encodeURIComponent(clean)}`, { signal: request.signal });
+      if (request.signal.aborted) return;
       setTracks(found || []);
       setActiveIdx(0);
     } catch (err) {
-      if (seq === requestSeq) props.onNotify?.(err.message, false);
+      if (!request.signal.aborted) {
+        setTracks([]);
+        props.onNotify?.(err.message, false);
+      }
     } finally {
-      if (seq === requestSeq) setLoading(false);
+      if (!request.signal.aborted) setLoading(false);
     }
   }
 
@@ -50,6 +56,7 @@ export function CommandSearch(props) {
 
   function closePalette() {
     clearTimeout(searchTimer);
+    searchRequest?.abort();
     setOpen(false);
     if (prevFocused && typeof prevFocused.focus === 'function') {
       prevFocused.focus();
@@ -59,11 +66,13 @@ export function CommandSearch(props) {
   function handleQueryInput(val) {
     setQuery(val);
     clearTimeout(searchTimer);
+    searchRequest?.abort();
+    setLoading(true);
     searchTimer = setTimeout(() => runSearch(val), 200);
   }
 
   async function propose(track) {
-    if (!track || submittingId()) return;
+    if (!track || loading() || submittingId()) return;
     if (currentId() === track.id || queuedIds().has(track.id)) return;
     setSubmittingId(track.id);
     try {
@@ -107,6 +116,20 @@ export function CommandSearch(props) {
     }
   }
 
+  function keepFocusInDialog(event) {
+    if (event.key !== 'Tab') return;
+    const controls = dialogRef.querySelectorAll('input:not([disabled]), button:not([disabled])');
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
+
   onMount(() => {
     const onGlobalKeyDown = (e) => {
       if (props.disabled?.()) {
@@ -130,6 +153,7 @@ export function CommandSearch(props) {
     onCleanup(() => {
       window.removeEventListener('keydown', onGlobalKeyDown, { capture: true });
       clearTimeout(searchTimer);
+      searchRequest?.abort();
     });
   });
 
@@ -143,10 +167,12 @@ export function CommandSearch(props) {
         }}
       >
         <div
+          ref={dialogRef}
           class="cmd-dialog"
           id="cmd-dialog"
           role="dialog"
           aria-modal="true"
+          onKeyDown={keepFocusInDialog}
           aria-label="Buscar y proponer canción"
         >
           <div class="cmd-input-row">
@@ -170,6 +196,7 @@ export function CommandSearch(props) {
                 type="button"
                 aria-label="Limpiar búsqueda"
                 onClick={() => {
+                  clearTimeout(searchTimer);
                   setQuery('');
                   runSearch('');
                   inputRef?.focus();
@@ -183,7 +210,7 @@ export function CommandSearch(props) {
 
           <div class="cmd-list" id="cmd-list" ref={(el) => { listRef = el; }} role="listbox">
             <Show
-              when={tracks().length > 0}
+              when={!loading() && tracks().length > 0}
               fallback={
                 <div class="cmd-empty">
                   {loading() ? 'Buscando canciones…' : 'No encontramos canciones para esa búsqueda.'}
