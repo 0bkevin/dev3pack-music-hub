@@ -19,11 +19,11 @@ const app = express();
 app.disable('x-powered-by');
 if (TRUST_PROXY) app.set('trust proxy', 1);
 app.use(securityHeaders);
-app.use(express.json({ limit: '32kb' }));
 app.use('/api', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use(express.json({ limit: '32kb' }));
 app.use(express.static(DIST_DIR));
 
 const db = new MusicDB(DB_PATH);

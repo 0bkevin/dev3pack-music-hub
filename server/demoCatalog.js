@@ -32,6 +32,11 @@ export function searchDemoCatalog(query) {
   );
 }
 
+export function getDemoTrackById(id) {
+  if (typeof id !== 'string') return null;
+  return DEMO_CATALOG.find((t) => t.id === id) || null;
+}
+
 export function randomDemoTrack(excludeIds = new Set()) {
   const pool = DEMO_CATALOG.filter((t) => !excludeIds.has(t.id));
   return pool[Math.floor(Math.random() * pool.length)] || null;

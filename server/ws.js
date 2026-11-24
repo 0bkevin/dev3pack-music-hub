@@ -1,35 +1,72 @@
 import { WebSocketServer } from 'ws';
-import { isIP } from 'node:net';
-import { DISCONNECT_GRACE_MS, MAX_WS_PER_IP, TRUST_PROXY, ZOMBIE_TTL_MS } from './config.js';
-import { auditLog, hashIp, isAllowedWsOrigin } from './security.js';
+import { DISCONNECT_GRACE_MS, MAX_WS_CONNECTIONS, MAX_WS_PER_IP, ZOMBIE_TTL_MS } from './config.js';
+import { auditLog, getClientIp, hashIp, isAllowedWsOrigin } from './security.js';
 
-function clientIp(req) {
-  const forwarded = TRUST_PROXY && req.headers['x-forwarded-for']?.split(',').at(-1).trim();
-  const ip = forwarded && isIP(forwarded) ? forwarded : req.socket?.remoteAddress || 'unknown';
-  return ip.replace(/^::ffff:(?=\d+\.)/i, '');
-}
+const STATE_COALESCE_MS = 25;
 
 export function createWsHub(server) {
-  const sockets = new Map();     // ws -> { clientId: string | null, ip: string }
-  const leaveTimers = new Map(); // clientToken -> Timeout
+  const sockets = new Map();      // ws -> { clientId: string | null, ip: string }
+  const socketsPerIp = new Map(); // ip -> count
+  const leaveTimers = new Map();  // clientToken -> Timeout
   let room = null;
+  let pendingStateMsg = null;
+  let stateFlushTimer = null;
+  let lastStateBroadcastAt = 0;
+
+  function removeSocket(ws) {
+    const meta = sockets.get(ws);
+    if (!meta) return null;
+    sockets.delete(ws);
+    const n = (socketsPerIp.get(meta.ip) || 1) - 1;
+    if (n <= 0) socketsPerIp.delete(meta.ip);
+    else socketsPerIp.set(meta.ip, n);
+    return meta;
+  }
 
   function safeSend(ws, data) {
     if (ws.readyState !== ws.OPEN) return;
     if (ws.bufferedAmount > 1024 * 1024) {
+      removeSocket(ws);
       ws.terminate();
       return;
     }
     try {
       ws.send(data);
     } catch {
+      removeSocket(ws);
       try { ws.terminate(); } catch { /* ignore */ }
     }
   }
 
-  function broadcast(msg) {
+  function sendAll(msg) {
     const data = JSON.stringify(msg);
-    for (const ws of sockets.keys()) safeSend(ws, data);
+    for (const ws of [...sockets.keys()]) safeSend(ws, data);
+  }
+
+  function broadcast(msg) {
+    if (msg?.type !== 'state') {
+      sendAll(msg);
+      return;
+    }
+    const now = Date.now();
+    if (!stateFlushTimer && now - lastStateBroadcastAt >= STATE_COALESCE_MS) {
+      lastStateBroadcastAt = now;
+      sendAll(msg);
+      return;
+    }
+    pendingStateMsg = msg;
+    if (!stateFlushTimer) {
+      const delay = Math.max(1, STATE_COALESCE_MS - (now - lastStateBroadcastAt));
+      stateFlushTimer = setTimeout(() => {
+        stateFlushTimer = null;
+        const latest = pendingStateMsg;
+        pendingStateMsg = null;
+        if (latest) {
+          lastStateBroadcastAt = Date.now();
+          sendAll(latest);
+        }
+      }, delay);
+    }
   }
 
   function sendToClient(clientId, msg) {
@@ -44,14 +81,6 @@ export function createWsHub(server) {
       if (ws !== excludeWs && meta.clientId === clientId && ws.readyState === ws.OPEN) return true;
     }
     return false;
-  }
-
-  function countSocketsForIp(ip) {
-    let n = 0;
-    for (const [ws, meta] of sockets.entries()) {
-      if (meta.ip === ip && ws.readyState === ws.OPEN) n++;
-    }
-    return n;
   }
 
   function cancelLeave(clientId) {
@@ -77,12 +106,16 @@ export function createWsHub(server) {
     path: '/ws',
     maxPayload: 4 * 1024,
     verifyClient: ({ req }, cb) => {
-      const ip = clientIp(req);
+      const ip = getClientIp(req);
       if (!isAllowedWsOrigin(req)) {
         auditLog('ws.origin_rejected', { ipHash: hashIp(ip) });
         return cb(false, 403, 'Forbidden Origin');
       }
-      if (countSocketsForIp(ip) >= MAX_WS_PER_IP) {
+      if (sockets.size >= MAX_WS_CONNECTIONS) {
+        auditLog('ws.global_cap_exceeded', { ipHash: hashIp(ip) });
+        return cb(false, 503, 'Server Busy');
+      }
+      if ((socketsPerIp.get(ip) || 0) >= MAX_WS_PER_IP) {
         auditLog('ws.ip_cap_exceeded', { ipHash: hashIp(ip) });
         return cb(false, 429, 'Too Many Connections');
       }
@@ -91,16 +124,17 @@ export function createWsHub(server) {
   });
 
   wss.on('connection', (ws, req) => {
-    const ip = clientIp(req);
+    const ip = getClientIp(req);
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
     ws.on('error', () => {
-      sockets.delete(ws);
+      removeSocket(ws);
       try { ws.terminate(); } catch { /* ignore */ }
     });
 
     const meta = { clientId: null, ip };
     sockets.set(ws, meta);
+    socketsPerIp.set(ip, (socketsPerIp.get(ip) || 0) + 1);
     if (room) safeSend(ws, JSON.stringify(room.snapshot()));
 
     ws.on('message', (raw) => {
@@ -119,7 +153,7 @@ export function createWsHub(server) {
 
     ws.on('close', () => {
       const id = meta.clientId;
-      sockets.delete(ws);
+      removeSocket(ws);
       if (!id || !room || hasOtherSocket(id, ws)) return;
       if (DISCONNECT_GRACE_MS === 0) {
         room.leave(id);
@@ -139,7 +173,7 @@ export function createWsHub(server) {
   function sweep() {
     for (const ws of wss.clients) {
       if (ws.isAlive === false) {
-        sockets.delete(ws);
+        removeSocket(ws);
         ws.terminate();
         continue;
       }
@@ -157,6 +191,9 @@ export function createWsHub(server) {
   }
 
   function closeAll() {
+    clearTimeout(stateFlushTimer);
+    stateFlushTimer = null;
+    pendingStateMsg = null;
     for (const t of leaveTimers.values()) clearTimeout(t);
     leaveTimers.clear();
     for (const ws of wss.clients) {

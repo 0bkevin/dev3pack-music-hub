@@ -39,6 +39,9 @@ export class Room {
     this.enqueueLog = new Map();     // clientToken -> [{ qid, at }]
     this.endTimer = null;
     this.advancing = false;
+    this.advancingTrackId = null;
+    this.skipSeq = 0;
+    this.lastSkip = null;
   }
 
   voteStats() {
@@ -184,13 +187,13 @@ export class Room {
     if (!track) return { error: 'Track inválido.' };
 
     const now = Date.now();
+    if (this.current?.track.id === track.id) return { error: 'Esta canción está sonando ahora mismo.' };
+    if (this.queue.some((q) => q.track.id === track.id)) return { error: 'Ya está en la cola.' };
     const last = this.lastPlayed.get(track.id);
     if (last && now - last < REPLAY_COOLDOWN_MS) {
       const mins = Math.ceil((REPLAY_COOLDOWN_MS - (now - last)) / 60000);
       return { error: `Esta canción ya sonó. Disponible de nuevo en ~${mins} min.` };
     }
-    if (this.current?.track.id === track.id) return { error: 'Esta canción está sonando ahora mismo.' };
-    if (this.queue.some((q) => q.track.id === track.id)) return { error: 'Ya está en la cola.' };
 
     const log = (this.enqueueLog.get(clientId) || []).filter(({ at }) => now - at < ENQUEUE_WINDOW_MS);
     if (log.length >= ENQUEUE_MAX) {
@@ -264,7 +267,12 @@ export class Room {
     if (typeof clientId !== 'string') return { error: 'Debes entrar primero.' };
     const client = this.clients.get(clientId);
     if (!client) return { error: 'Debes entrar primero.' };
-    if (this.advancing) return { error: 'Cambiando de canción, intenta en un segundo.' };
+    if (this.advancing) {
+      if (expectedTrackId && this.advancingTrackId && expectedTrackId === this.advancingTrackId) {
+        return { error: 'La canción ya cambió.' };
+      }
+      return { error: 'Cambiando de canción, intenta en un segundo.' };
+    }
     if (!this.current) return { error: 'Nada está sonando.' };
     if (expectedTrackId && this.current.track.id !== expectedTrackId) {
       return { error: 'La canción ya cambió.' };
@@ -308,15 +316,16 @@ export class Room {
   }
 
   async syncCurrentPlayback() {
-    if (!this.current?.track?.uri) return;
+    if (!this.current?.track?.uri) return { ok: true, reason: 'idle' };
     const elapsed = Math.max(0, Date.now() - this.current.startedAt);
     const res = await playTrackOnHost(this.current.track, elapsed).catch((e) => ({
       ok: false,
       detail: e.message,
     }));
-    if (!res.ok && res.reason !== 'host-not-connected') {
+    if (!res.ok && res.reason !== 'host-not-connected' && res.reason !== 'device-not-ready') {
       console.warn('Spotify playback warning:', res);
     }
+    return res;
   }
 
   async advance(reason = 'ended') {
@@ -324,8 +333,12 @@ export class Room {
     this.advancing = true;
     clearTimeout(this.endTimer);
     const prevCurrent = this.current;
+    this.advancingTrackId = prevCurrent?.track?.id || null;
     const prevStats = this.voteStats();
     const skippedTrack = prevCurrent?.track;
+    if (reason === 'skipped') {
+      this.lastSkip = { seq: ++this.skipSeq, trackName: skippedTrack?.name || null };
+    }
 
     if (prevCurrent?.historyId && this.db) {
       this.db.finalizeTrack(prevCurrent.historyId, {
@@ -407,6 +420,7 @@ export class Room {
       this.syncCurrentPlayback();
     } finally {
       this.advancing = false;
+      this.advancingTrackId = null;
     }
   }
 
@@ -420,6 +434,7 @@ export class Room {
       cooldownMinutes: REPLAY_COOLDOWN_MS / 60000,
       maxVotesPerTrack: MAX_VOTES_PER_TRACK,
       current: this.current,
+      lastSkip: this.lastSkip,
       likes: stats.likes,
       dislikes: stats.dislikes,
       score: stats.score,
