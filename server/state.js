@@ -36,7 +36,7 @@ export class Room {
     this.votes = new Map();          // clientToken -> 1 | -1
     this.voteActions = new Map();    // clientToken -> count of vote actions on current track
     this.lastPlayed = db ? db.getRecentPlayedCooldowns(REPLAY_COOLDOWN_MS) : new Map();
-    this.enqueueLog = new Map();     // clientToken -> [timestamps]
+    this.enqueueLog = new Map();     // clientToken -> [{ qid, at }]
     this.endTimer = null;
     this.advancing = false;
   }
@@ -73,7 +73,7 @@ export class Room {
       if (now - ts >= REPLAY_COOLDOWN_MS) this.lastPlayed.delete(trackId);
     }
     for (const [clientId, log] of this.enqueueLog) {
-      const fresh = log.filter((ts) => now - ts < ENQUEUE_WINDOW_MS);
+      const fresh = log.filter(({ at }) => now - at < ENQUEUE_WINDOW_MS);
       if (fresh.length === 0) this.enqueueLog.delete(clientId);
       else this.enqueueLog.set(clientId, fresh);
     }
@@ -135,10 +135,9 @@ export class Room {
 
   reorderFairQueue() {
     if (this.queue.length <= 1) return;
-    // Sort chronologically first so each person's songs keep their exact request order
-    const ordered = [...this.queue].sort((a, b) => (a.seq || 0) - (b.seq || 0));
-    const buckets = new Map(); // userId -> [items]
-    for (const item of ordered) {
+    // Preserve the waiting turn order and each person's request order.
+    const buckets = new Map();
+    for (const item of this.queue) {
       const key = item.userId || item.qid;
       if (!buckets.has(key)) buckets.set(key, []);
       buckets.get(key).push(item);
@@ -156,7 +155,7 @@ export class Room {
 
     const interleaved = [];
     let round = 0;
-    while (interleaved.length < ordered.length) {
+    while (interleaved.length < this.queue.length) {
       for (const k of keys) {
         const list = buckets.get(k);
         if (round < list.length) interleaved.push(list[round]);
@@ -193,16 +192,13 @@ export class Room {
     if (this.current?.track.id === track.id) return { error: 'Esta canción está sonando ahora mismo.' };
     if (this.queue.some((q) => q.track.id === track.id)) return { error: 'Ya está en la cola.' };
 
-    const log = (this.enqueueLog.get(clientId) || []).filter((ts) => now - ts < ENQUEUE_WINDOW_MS);
+    const log = (this.enqueueLog.get(clientId) || []).filter(({ at }) => now - at < ENQUEUE_WINDOW_MS);
     if (log.length >= ENQUEUE_MAX) {
-      const waitMin = Math.ceil((ENQUEUE_WINDOW_MS - (now - log[0])) / 60000);
+      const waitMin = Math.ceil((ENQUEUE_WINDOW_MS - (now - log[0].at)) / 60000);
       return {
         error: `Ya agregaste ${ENQUEUE_MAX} canciones en ${ENQUEUE_WINDOW_MS / 60000} min. Espera ~${waitMin} min para agregar otra.`,
       };
     }
-    log.push(now);
-    this.enqueueLog.set(clientId, log);
-
     const historyId = this.db
       ? this.db.recordTrackRequest({
           userId: client.publicId,
@@ -213,10 +209,11 @@ export class Room {
         })
       : null;
 
-    this.queueSeq = (this.queueSeq || 0) + 1;
+    const qid = crypto.randomUUID();
+    log.push({ qid, at: now });
+    this.enqueueLog.set(clientId, log);
     this.queue.push({
-      qid: crypto.randomUUID(),
-      seq: this.queueSeq,
+      qid,
       track,
       addedBy: client.name,
       addedByEmoji: client.emoji,
@@ -252,12 +249,11 @@ export class Room {
 
     // Refund 1 enqueue slot so the participant can pick another song
     const now = Date.now();
-    const log = (this.enqueueLog.get(clientId) || []).filter((ts) => now - ts < ENQUEUE_WINDOW_MS);
-    if (log.length > 0) {
-      log.pop();
-      if (log.length === 0) this.enqueueLog.delete(clientId);
-      else this.enqueueLog.set(clientId, log);
-    }
+    const log = (this.enqueueLog.get(clientId) || []).filter((entry) => (
+      entry.qid !== qid && now - entry.at < ENQUEUE_WINDOW_MS
+    ));
+    if (log.length === 0) this.enqueueLog.delete(clientId);
+    else this.enqueueLog.set(clientId, log);
 
     if (item.historyId) this.db?.deleteQueuedHistory(item.historyId);
     this.emitState();
@@ -296,7 +292,7 @@ export class Room {
       this.advance('skipped').catch((err) => console.error('advance error:', err));
       return { ok: true, skipped: true, myVote: 0, votesUsed: 0, maxVotesPerTrack: MAX_VOTES_PER_TRACK };
     }
-    this.emitState();
+    this.broadcast({ type: 'vote-totals', trackId: this.current.track.id, ...stats });
     return { ok: true, ...voteState };
   }
 

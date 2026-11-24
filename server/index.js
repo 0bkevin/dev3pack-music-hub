@@ -18,8 +18,8 @@ const DIST_DIR = path.join(__dirname, '..', 'dist');
 const app = express();
 app.disable('x-powered-by');
 if (TRUST_PROXY) app.set('trust proxy', 1);
-app.use(express.json({ limit: '32kb' }));
 app.use(securityHeaders);
+app.use(express.json({ limit: '32kb' }));
 app.use('/api', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
@@ -28,6 +28,7 @@ app.use(express.static(DIST_DIR));
 
 const db = new MusicDB(DB_PATH);
 db.pruneRetention(DB_RETENTION_MS);
+db.markInterruptedTracks();
 const server = createServer(app);
 const wsHub = createWsHub(server);
 const room = new Room(wsHub.broadcast, db);
@@ -51,6 +52,14 @@ app.use('/api/spotify', spotifyRoutes.apiRouter);
 app.get('/callback', ...spotifyRoutes.callbackMiddleware);
 app.get('/screen', (_req, res) => res.sendFile(path.join(DIST_DIR, 'screen.html')));
 app.get('/history', (_req, res) => res.sendFile(path.join(DIST_DIR, 'history.html')));
+
+app.use((err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON inválido.' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Solicitud demasiado grande.' });
+  auditLog('http.request_failed', { status: err.status || 500 });
+  res.status(err.status || 500).json({ error: 'No se pudo procesar la solicitud.' });
+});
 
 const maintenanceTimer = setInterval(() => {
   wsHub.sweep();

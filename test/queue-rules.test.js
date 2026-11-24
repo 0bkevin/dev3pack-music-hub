@@ -48,7 +48,32 @@ describe('Fair round-robin queue, max duration rejection, unlimited queue, and c
       ['s1', 'm1', 'k2', 's2', 'k3']
     );
 
+    await room.advance();
+    assert.equal(room.current.track.id, 's1');
+    assert.equal(room.queue[0].track.id, 'm1');
+    await room.advance();
+    assert.equal(room.current.track.id, 'm1');
+    assert.equal(room.queue[0].track.id, 'k2');
+
     clearTimeout(room.endTimer);
+  });
+
+  it('keeps newer quota slots when a participant cancels an expired request', (t) => {
+    t.mock.method(Date, 'now', () => 1_000_000);
+    const room = new Room(() => {});
+    t.after(() => clearTimeout(room.endTimer));
+    const user = room.join('Kevin');
+    room.enqueue(user.id, makeTrack('k1', 'K1'));
+    Date.now.mock.mockImplementation(() => 1_060_000);
+    room.enqueue(user.id, makeTrack('k2', 'K2'));
+    Date.now.mock.mockImplementation(() => 1_120_000);
+    room.enqueue(user.id, makeTrack('k3', 'K3'));
+    Date.now.mock.mockImplementation(() => 1_660_000);
+
+    assert.equal(room.cancelQueued(user.id, room.queue[0].qid).ok, true);
+    assert.equal(room.enqueue(user.id, makeTrack('k4', 'K4')).ok, true);
+    assert.equal(room.enqueue(user.id, makeTrack('k5', 'K5')).ok, true);
+    assert.match(room.enqueue(user.id, makeTrack('k6', 'K6')).error, /3 canciones/);
   });
 
   it('allows canceling own queued song, refunds quota slot, removes SQLite queued row, and blocks canceling others', async () => {

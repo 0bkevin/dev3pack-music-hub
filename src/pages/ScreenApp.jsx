@@ -60,6 +60,18 @@ export function ScreenApp() {
 
   const spotify = createSpotifyHostPlayer({ host, onError: showBanner });
 
+  const AudioButton = () => (
+    <Show when={host()?.configured}>
+      <button
+        class={`tv-audio-btn${spotify.isButtonSubtle() ? ' on' : ''}`}
+        type="button"
+        onClick={spotify.handleAction}
+      >
+        {spotify.buttonLabel()}
+      </button>
+    </Show>
+  );
+
   const waveHue = createMemo(() => {
     const t = current()?.track;
     return t ? 334 + (hashCode(t.id) % 26) : 344;
@@ -162,11 +174,7 @@ export function ScreenApp() {
           <div class="tv-idle-bar">
             <i class="live-dot" />
             <span>Esperando música</span>
-            <Show when={host()?.configured && !host()?.connected}>
-              <a class="tv-audio-btn" href="/api/spotify/login">
-                Conectar Spotify
-              </a>
-            </Show>
+            <AudioButton />
           </div>
         </div>
       </Show>
@@ -244,15 +252,7 @@ export function ScreenApp() {
                   </span>
                 </div>
 
-                <Show when={host()?.configured}>
-                  <button
-                    class={`tv-audio-btn${spotify.isButtonSubtle() ? ' on' : ''}`}
-                    type="button"
-                    onClick={spotify.handleAction}
-                  >
-                    {spotify.buttonLabel()}
-                  </button>
-                </Show>
+                <AudioButton />
               </div>
             </div>
           </footer>

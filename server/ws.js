@@ -1,6 +1,13 @@
 import { WebSocketServer } from 'ws';
-import { DISCONNECT_GRACE_MS, MAX_WS_PER_IP, ZOMBIE_TTL_MS } from './config.js';
+import { isIP } from 'node:net';
+import { DISCONNECT_GRACE_MS, MAX_WS_PER_IP, TRUST_PROXY, ZOMBIE_TTL_MS } from './config.js';
 import { auditLog, hashIp, isAllowedWsOrigin } from './security.js';
+
+function clientIp(req) {
+  const forwarded = TRUST_PROXY && req.headers['x-forwarded-for']?.split(',').at(-1).trim();
+  const ip = forwarded && isIP(forwarded) ? forwarded : req.socket?.remoteAddress || 'unknown';
+  return ip.replace(/^::ffff:(?=\d+\.)/i, '');
+}
 
 export function createWsHub(server) {
   const sockets = new Map();     // ws -> { clientId: string | null, ip: string }
@@ -9,6 +16,10 @@ export function createWsHub(server) {
 
   function safeSend(ws, data) {
     if (ws.readyState !== ws.OPEN) return;
+    if (ws.bufferedAmount > 1024 * 1024) {
+      ws.terminate();
+      return;
+    }
     try {
       ws.send(data);
     } catch {
@@ -66,7 +77,7 @@ export function createWsHub(server) {
     path: '/ws',
     maxPayload: 4 * 1024,
     verifyClient: ({ req }, cb) => {
-      const ip = req.socket?.remoteAddress || 'unknown';
+      const ip = clientIp(req);
       if (!isAllowedWsOrigin(req)) {
         auditLog('ws.origin_rejected', { ipHash: hashIp(ip) });
         return cb(false, 403, 'Forbidden Origin');
@@ -80,7 +91,7 @@ export function createWsHub(server) {
   });
 
   wss.on('connection', (ws, req) => {
-    const ip = req.socket?.remoteAddress || 'unknown';
+    const ip = clientIp(req);
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
     ws.on('error', () => {
