@@ -1,4 +1,5 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { toast } from '../lib/sonner.js';
@@ -29,7 +30,9 @@ function fmtTime(ts) {
 }
 
 export function HistoryApp() {
+  const [session, setSession] = createSignal(loadSession());
   const [data, setData] = createSignal(null);
+  const [peopleStore, setPeopleStore] = createStore({ list: [] });
   const [loading, setLoading] = createSignal(true);
   const [activeTab, setActiveTab] = createSignal('tracks'); // 'tracks' | 'people'
   const [searchText, setSearchText] = createSignal('');
@@ -37,13 +40,23 @@ export function HistoryApp() {
   const [userTracks, setUserTracks] = createSignal({}); // userId -> TrackHistory[]
   const [loadingUserId, setLoadingUserId] = createSignal(null);
 
-  const room = createRoom();
+  const room = createRoom({
+    clientId: () => session()?.clientId || null,
+    onSessionExpired: () => {
+      saveSession(null);
+      setSession(null);
+    },
+  });
 
   async function loadAll(silent = false) {
     if (!silent) setLoading(true);
     try {
       const res = await api('/api/history');
       setData(res);
+      setPeopleStore(
+        'list',
+        reconcile((res.people || []).map((p, i) => ({ ...p, rank: i + 1 })), { key: 'id' })
+      );
       const openId = openUserId();
       if (openId) fetchUserHistory(openId, { silent: true });
     } catch (err) {
@@ -87,10 +100,11 @@ export function HistoryApp() {
   }
 
   async function ensureHistorySession() {
-    let s = loadSession();
+    let s = session() || loadSession();
     if (s?.clientId) return s;
     s = await api('/api/join', { method: 'POST', body: JSON.stringify({}) });
     saveSession(s);
+    setSession(s);
     return s;
   }
 
@@ -105,6 +119,7 @@ export function HistoryApp() {
       } catch (err) {
         if (err.message.includes('entrar primero')) {
           saveSession(null);
+          setSession(null);
           s = await ensureHistorySession();
           await api('/api/queue', {
             method: 'POST',
@@ -115,7 +130,7 @@ export function HistoryApp() {
         }
       }
       toast.success(`«${track.name}» agregada`);
-      loadAll();
+      loadAll(true);
       return true;
     } catch (err) {
       toast.error('No se pudo agregar a la cola', err.message);
@@ -150,7 +165,7 @@ export function HistoryApp() {
     ];
   });
 
-  const people = createMemo(() => (data()?.people || []).map((p, i) => ({ ...p, rank: i + 1 })));
+  const people = () => peopleStore.list;
   const fullHistory = () => data()?.history || [];
   const totals = () => data()?.totals || { totalTracks: 0, totalRequesters: 0 };
 

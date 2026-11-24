@@ -2,7 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room, sanitizeTrack } from '../server/state.js';
 import { sanitizeEmoji, validateDisplayName } from '../server/sanitize.js';
-import { clearHostDevice, playTrackOnHost, resolveTrack, setHostDevice } from '../server/spotify.js';
+import {
+  clearHostDevice,
+  getHostDeviceGeneration,
+  playTrackOnHost,
+  resolveTrack,
+  setHostDevice,
+} from '../server/spotify.js';
 import { normalizeIp } from '../server/security.js';
 import { MusicDB } from '../server/db.js';
 
@@ -127,10 +133,12 @@ describe('Security hardening & adversarial input sanitization', () => {
       assert.ok(r.error, `Should block inappropriate name: ${bad}`);
     }
 
-    // Decomposed NFD accents (e.g. macOS input) normalize to NFC cleanly
+    // Decomposed NFD accents (e.g. macOS input) normalize to NFC cleanly; pure punctuation rejected
     const nfd = validateDisplayName('Jose\u0301');
     assert.equal(nfd.error, undefined);
     assert.equal(nfd.name, 'José');
+    assert.ok(validateDisplayName('...').error);
+    assert.ok(validateDisplayName('---').error);
   });
 
   it('canonicalizes Spotify track IDs to URI, supports flag/keycap emoji, and guards host device playback', async () => {
@@ -151,12 +159,17 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.equal(sanitizeEmoji('1️⃣'), '1️⃣');
     assert.notEqual(sanitizeEmoji('🎧\u0301'), '🎧\u0301');
 
-    // Host device validation, stale device clear protection, & refusing to play without registered TV device
+    // Host device validation, stale device/generation clear protection, & refusing to play without registered TV device
     assert.equal(setHostDevice('x'.repeat(129)), false);
     assert.equal(setHostDevice('   '), false);
-    assert.equal(setHostDevice('device-new'), true);
-    assert.equal(clearHostDevice('device-old'), false);
-    assert.equal(clearHostDevice('device-new'), true);
+    assert.equal(setHostDevice('device-same'), true);
+    const oldGen = getHostDeviceGeneration();
+    assert.equal(setHostDevice('device-same'), true);
+    const newGen = getHostDeviceGeneration();
+    assert.notEqual(newGen, oldGen);
+    assert.equal(clearHostDevice('device-same', oldGen), false);
+    assert.equal(clearHostDevice('device-other', newGen), false);
+    assert.equal(clearHostDevice('device-same', newGen), true);
     assert.equal(setHostDevice(null), true);
     const playRes = await playTrackOnHost(
       { uri: 'spotify:track:0DiWol3AO6WpXZgp0goxAV' },
@@ -165,11 +178,15 @@ describe('Security hardening & adversarial input sanitization', () => {
     assert.equal(playRes.ok, false);
     assert.equal(playRes.reason, 'device-not-ready');
 
-    // Non-ASCII case folding for duplicate names in SQLite
+    // Non-ASCII case folding & retention preservation for live idle participants
     const db = new MusicDB(':memory:');
     db.recordUser({ publicId: 'a1b2c3d4e5f60708', name: 'Ángel', emoji: '🎵', anonymous: false, ip: '127.0.0.1' });
     assert.equal(db.isNameTaken('ángel'), true);
     assert.equal(db.isNameTaken('A\u0301ngel'), true);
+    db.db.prepare('UPDATE users SET last_seen_at = 0 WHERE id = ?').run('a1b2c3d4e5f60708');
+    const kept = db.pruneRetention(1000, ['a1b2c3d4e5f60708']);
+    assert.equal(kept.deletedUsers, 0);
+    assert.equal(db.isNameTaken('Ángel'), true);
     db.close();
 
     // IPv4-mapped IPv6 normalization

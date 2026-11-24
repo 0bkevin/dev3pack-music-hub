@@ -333,16 +333,30 @@ export class MusicDB {
     };
   }
 
-  pruneRetention(retentionMs) {
+  pruneRetention(retentionMs, activeUserIds = []) {
     const cutoff = Date.now() - retentionMs;
     const h = this.db.prepare('DELETE FROM track_history WHERE requested_at < ?').run(cutoff);
-    const u = this.db
-      .prepare(`
-        DELETE FROM users
-        WHERE last_seen_at < ?
-          AND id NOT IN (SELECT DISTINCT user_id FROM track_history WHERE user_id IS NOT NULL)
-      `)
-      .run(cutoff);
+    const active = [...new Set((activeUserIds || []).filter((id) => typeof id === 'string' && id))];
+    let u;
+    if (active.length > 0) {
+      const placeholders = active.map(() => '?').join(', ');
+      u = this.db
+        .prepare(`
+          DELETE FROM users
+          WHERE last_seen_at < ?
+            AND id NOT IN (SELECT DISTINCT user_id FROM track_history WHERE user_id IS NOT NULL)
+            AND id NOT IN (${placeholders})
+        `)
+        .run(cutoff, ...active);
+    } else {
+      u = this.db
+        .prepare(`
+          DELETE FROM users
+          WHERE last_seen_at < ?
+            AND id NOT IN (SELECT DISTINCT user_id FROM track_history WHERE user_id IS NOT NULL)
+        `)
+        .run(cutoff);
+    }
     try {
       this.db.exec('PRAGMA wal_checkpoint(PASSIVE);');
     } catch { /* ignore */ }

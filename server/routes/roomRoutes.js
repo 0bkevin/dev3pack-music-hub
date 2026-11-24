@@ -46,28 +46,32 @@ export function createRoomRouter(room, wsHub) {
     }
   });
 
-  router.post('/queue', mutateLimiter, async (req, res) => {
-    const { clientId, track } = req.body || {};
-    if (typeof clientId !== 'string' || !room.clients.has(clientId)) {
-      return res.status(400).json({ error: 'Debes entrar primero.' });
-    }
-    let resolved;
+  router.post('/queue', mutateLimiter, async (req, res, next) => {
     try {
-      resolved = await resolveTrack(track);
-    } catch {
-      return res.status(502).json({ error: 'No se pudo validar la canción en este momento.' });
+      const { clientId, track } = req.body || {};
+      if (typeof clientId !== 'string' || !room.clients.has(clientId)) {
+        return res.status(400).json({ error: 'Debes entrar primero.' });
+      }
+      let resolved;
+      try {
+        resolved = await resolveTrack(track);
+      } catch {
+        return res.status(502).json({ error: 'No se pudo validar la canción en este momento.' });
+      }
+      if (!resolved) {
+        return res.status(400).json({ error: 'Track inválido.' });
+      }
+      const result = room.enqueue(clientId, resolved);
+      if (result.error) return res.status(400).json(result);
+      auditLog('queue.enqueue', {
+        ipHash: hashIp(getClientIp(req)),
+        publicId: room.clients.get(clientId)?.publicId,
+        trackId: resolved.id,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
     }
-    if (!resolved) {
-      return res.status(400).json({ error: 'Track inválido.' });
-    }
-    const result = room.enqueue(clientId, resolved);
-    if (result.error) return res.status(400).json(result);
-    auditLog('queue.enqueue', {
-      ipHash: hashIp(getClientIp(req)),
-      publicId: room.clients.get(clientId)?.publicId,
-      trackId: resolved.id,
-    });
-    res.json(result);
   });
 
   router.post('/queue/cancel', mutateLimiter, (req, res) => {

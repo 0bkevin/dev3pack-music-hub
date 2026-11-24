@@ -67,7 +67,7 @@ export function validateDisplayName(raw) {
       error: `El nombre debe tener entre ${MIN_NAME_LENGTH} y ${MAX_NAME_LENGTH} caracteres.`,
     };
   }
-  if (!VALID_NAME_CHARS.test(clean)) {
+  if (!VALID_NAME_CHARS.test(clean) || !/[\p{L}\p{N}]/u.test(clean)) {
     return { error: 'Usa solo letras, números y espacios en tu nombre.' };
   }
 

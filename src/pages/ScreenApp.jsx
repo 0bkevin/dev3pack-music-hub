@@ -19,6 +19,7 @@ export function ScreenApp() {
   const [banner, setBanner] = createSignal({ text: '', visible: false });
 
   let bannerTimer = null;
+  let lastRoomInstanceId = null;
   let lastSkipSeq = null;
   let reactionSeq = 0;
   let wavePulse = 0;
@@ -97,9 +98,15 @@ export function ScreenApp() {
     const st = room.state();
     if (!st) return;
     const seq = st.lastSkip?.seq ?? 0;
+    const instId = st.roomInstanceId || null;
     if (lastSkipSeq === null) {
+      lastRoomInstanceId = instId;
       lastSkipSeq = seq;
       return;
+    }
+    if (instId && lastRoomInstanceId && instId !== lastRoomInstanceId) {
+      lastRoomInstanceId = instId;
+      lastSkipSeq = 0;
     }
     if (seq > lastSkipSeq) {
       lastSkipSeq = seq;

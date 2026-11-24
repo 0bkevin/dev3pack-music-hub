@@ -170,6 +170,28 @@ describe('Room net voting, limits, and adversarial edge cases', () => {
     clearTimeout(room.endTimer);
   });
 
+  it('recovers cleanly from finalizeTrack DB failure without wedging advancing state', async () => {
+    const fakeDb = {
+      getRecentPlayedCooldowns: () => new Map(),
+      isNameTaken: () => false,
+      recordUser: () => {},
+      recordTrackRequest: () => 1,
+      markTrackPlaying: () => {},
+      finalizeTrack: () => { throw new Error('disk full'); },
+    };
+    const room = new Room(() => {}, fakeDb);
+    const host = room.join('Host').id;
+    room.enqueue(host, makeTrack('t1'));
+    room.enqueue(host, makeTrack('t2'));
+    await new Promise((r) => setTimeout(r, 15));
+
+    await room.advance('ended');
+    assert.equal(room.advancing, false);
+    assert.equal(room.current.track.id, 't2');
+    assert.ok(room.snapshot().roomInstanceId);
+    clearTimeout(room.endTimer);
+  });
+
   it('rejects malformed vote payloads', () => {
     const { room } = createTestRoom();
     const u = room.join('U').id;

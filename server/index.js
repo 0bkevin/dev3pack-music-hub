@@ -68,7 +68,8 @@ const maintenanceTimer = setInterval(() => {
 maintenanceTimer.unref();
 
 const retentionTimer = setInterval(() => {
-  const purged = db.pruneRetention(DB_RETENTION_MS);
+  const activePublicIds = [...room.clients.values()].map((c) => c.publicId);
+  const purged = db.pruneRetention(DB_RETENTION_MS, activePublicIds);
   if (purged.deletedHistory || purged.deletedUsers) {
     auditLog('db.retention_purged', purged);
   }

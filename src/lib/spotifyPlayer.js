@@ -17,8 +17,16 @@ export function createSpotifyHostPlayer({ host, onError }) {
   const [retry, setRetry] = createSignal(0);
 
   let player = null;
+  let deviceGen = null;
+  let regSeq = 0;
   const configured = createMemo(() => Boolean(host()?.configured));
   const connected = createMemo(() => Boolean(host()?.connected));
+
+  createEffect(() => {
+    if (connected() && host()?.deviceReady === false && unlocked()) {
+      setUnlocked(false);
+    }
+  });
 
   createEffect(() => {
     retry();
@@ -55,30 +63,38 @@ export function createSpotifyHostPlayer({ host, onError }) {
 
     player = activePlayer;
     player.addListener('ready', async ({ device_id }) => {
+      const seq = ++regSeq;
       try {
         const res = await registerDevice(device_id);
-        if (player === activePlayer) {
+        if (player === activePlayer && seq === regSeq) {
+          deviceGen = res?.deviceGeneration ?? null;
           setDeviceId(device_id);
           if (res?.playback && !res.playback.ok && res.playback.status) {
             onError?.(`Spotify no pudo iniciar reproducción (${res.playback.status}). Haz clic en Activar sonido.`, 5000);
           }
         }
       } catch {
-        if (player === activePlayer) onError?.('No se pudo registrar el reproductor de Spotify.', 5000);
+        if (player === activePlayer && seq === regSeq) {
+          onError?.('No se pudo registrar el reproductor de Spotify.', 5000);
+        }
       }
     });
 
     player.addListener('not_ready', ({ device_id } = {}) => {
       if (player !== activePlayer) return;
       const staleId = device_id || deviceId();
+      const staleGen = deviceGen;
       if (!device_id || deviceId() === device_id) {
+        ++regSeq;
+        deviceGen = null;
         setDeviceId(null);
         setUnlocked(false);
       }
-      const url = staleId
-        ? `/api/spotify/device?deviceId=${encodeURIComponent(staleId)}`
-        : '/api/spotify/device';
-      fetch(url, { method: 'DELETE' }).catch(() => {});
+      const params = new URLSearchParams();
+      if (staleId) params.set('deviceId', staleId);
+      if (staleGen !== null && staleGen !== undefined) params.set('gen', String(staleGen));
+      const qs = params.toString();
+      fetch(qs ? `/api/spotify/device?${qs}` : '/api/spotify/device', { method: 'DELETE' }).catch(() => {});
       onError?.('Reproductor de Spotify desconectado temporalmente.', 4500);
     });
     player.addListener('player_state_changed', (s) => {
@@ -121,16 +137,22 @@ export function createSpotifyHostPlayer({ host, onError }) {
       setRetry((count) => count + 1);
       return;
     }
+    const activeId = deviceId();
+    const seq = ++regSeq;
     try {
       await player.activateElement?.();
-      const res = await registerDevice(deviceId());
+      const res = await registerDevice(activeId);
+      if (seq !== regSeq || deviceId() !== activeId) return;
+      deviceGen = res?.deviceGeneration ?? deviceGen;
       if (res?.playback && !res.playback.ok && res.playback.status) {
         onError?.(`No se pudo iniciar reproducción en Spotify (${res.playback.status}). Intenta de nuevo.`, 5000);
         return;
       }
       setUnlocked(true);
     } catch {
-      onError?.('No se pudo activar el sonido. Intenta de nuevo.', 5000);
+      if (seq === regSeq) {
+        onError?.('No se pudo activar el sonido. Intenta de nuevo.', 5000);
+      }
     }
   }
 

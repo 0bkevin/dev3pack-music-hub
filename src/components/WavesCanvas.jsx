@@ -20,6 +20,7 @@ export function WavesCanvas(props) {
     ];
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let initialized = false;
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -28,7 +29,7 @@ export function WavesCanvas(props) {
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (motionQuery.matches) draw(0);
+      if (initialized && motionQuery.matches) draw(0);
     }
 
     function draw(now) {
@@ -103,6 +104,7 @@ export function WavesCanvas(props) {
     };
 
     resize();
+    initialized = true;
     window.addEventListener('resize', resize);
     startOrRender();
     motionQuery.addEventListener('change', startOrRender);

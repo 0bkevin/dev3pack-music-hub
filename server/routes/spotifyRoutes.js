@@ -7,6 +7,7 @@ import {
   getHostAccessToken,
   verifyHostSession,
   setHostDevice,
+  getHostDeviceGeneration,
   clearHostDevice,
   pauseAndDisconnectHost,
   getHostStatus,
@@ -100,37 +101,52 @@ export function createSpotifyRoutes(room) {
     }
   });
 
-  apiRouter.get('/token', hostApiLimiter, requireHostSession, async (_req, res) => {
-    const accessToken = await getHostAccessToken();
-    if (!accessToken) return res.status(401).json({ error: 'Host de Spotify no conectado.' });
-    res.json({ accessToken });
+  apiRouter.get('/token', hostApiLimiter, requireHostSession, async (_req, res, next) => {
+    try {
+      const accessToken = await getHostAccessToken();
+      if (!accessToken) return res.status(401).json({ error: 'Host de Spotify no conectado.' });
+      res.json({ accessToken });
+    } catch (err) {
+      next(err);
+    }
   });
 
-  apiRouter.post('/device', hostApiLimiter, requireHostSession, async (req, res) => {
-    const { deviceId } = req.body || {};
-    if (typeof deviceId !== 'string' || !setHostDevice(deviceId)) {
-      return res.status(400).json({ error: 'deviceId inválido (1-128 caracteres).' });
+  apiRouter.post('/device', hostApiLimiter, requireHostSession, async (req, res, next) => {
+    try {
+      const { deviceId } = req.body || {};
+      if (typeof deviceId !== 'string' || !setHostDevice(deviceId)) {
+        return res.status(400).json({ error: 'deviceId inválido (1-128 caracteres).' });
+      }
+      const deviceGeneration = getHostDeviceGeneration();
+      room.emitState(true);
+      const playback = await room.syncCurrentPlayback();
+      res.json({ ok: true, deviceGeneration, host: getHostStatus(), playback });
+    } catch (err) {
+      next(err);
     }
-    room.emitState();
-    const playback = await room.syncCurrentPlayback();
-    res.json({ ok: true, host: getHostStatus(), playback });
   });
 
   apiRouter.delete('/device', hostApiLimiter, requireHostSession, (req, res) => {
     const rawId = req.body?.deviceId ?? req.query?.deviceId ?? null;
+    const rawGen = req.body?.gen ?? req.query?.gen ?? null;
     const expectedId = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : null;
-    const cleared = clearHostDevice(expectedId);
+    const expectedGen = rawGen !== null && rawGen !== undefined && rawGen !== '' ? Number(rawGen) : null;
+    const cleared = clearHostDevice(expectedId, expectedGen);
     if (cleared) room.emitState(true);
     res.json({ ok: true, cleared, host: getHostStatus() });
   });
 
-  apiRouter.post('/disconnect', hostApiLimiter, requireHostSession, async (req, res) => {
-    await pauseAndDisconnectHost();
-    const secureFlag = isHttpsReq(req) ? '; Secure' : '';
-    res.setHeader('Set-Cookie', `${HOST_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureFlag}`);
-    auditLog('host.disconnected', { ipHash: hashIp(getClientIp(req)) });
-    room.emitState();
-    res.json({ ok: true });
+  apiRouter.post('/disconnect', hostApiLimiter, requireHostSession, async (req, res, next) => {
+    try {
+      await pauseAndDisconnectHost();
+      const secureFlag = isHttpsReq(req) ? '; Secure' : '';
+      res.setHeader('Set-Cookie', `${HOST_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureFlag}`);
+      auditLog('host.disconnected', { ipHash: hashIp(getClientIp(req)) });
+      room.emitState(true);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
   });
 
   const callbackMiddleware = [

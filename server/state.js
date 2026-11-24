@@ -40,6 +40,8 @@ export class Room {
     this.endTimer = null;
     this.advancing = false;
     this.advancingTrackId = null;
+    this.shuffleAbort = null;
+    this.roomInstanceId = crypto.randomUUID();
     this.skipSeq = 0;
     this.lastSkip = null;
   }
@@ -228,6 +230,7 @@ export class Room {
     if (!this.current && !this.advancing) {
       this.advance().catch((err) => console.error('advance error:', err));
     } else {
+      if (this.shuffleAbort) this.shuffleAbort.abort();
       this.emitState();
     }
     return { ok: true };
@@ -322,7 +325,7 @@ export class Room {
       ok: false,
       detail: e.message,
     }));
-    if (!res.ok && res.reason !== 'host-not-connected' && res.reason !== 'device-not-ready') {
+    if (!res.ok && res.reason !== 'host-not-connected' && res.reason !== 'device-not-ready' && res.reason !== 'superseded') {
       console.warn('Spotify playback warning:', res);
     }
     return res;
@@ -332,27 +335,31 @@ export class Room {
     if (this.advancing) return;
     this.advancing = true;
     clearTimeout(this.endTimer);
-    const prevCurrent = this.current;
-    this.advancingTrackId = prevCurrent?.track?.id || null;
-    const prevStats = this.voteStats();
-    const skippedTrack = prevCurrent?.track;
-    if (reason === 'skipped') {
-      this.lastSkip = { seq: ++this.skipSeq, trackName: skippedTrack?.name || null };
-    }
-
-    if (prevCurrent?.historyId && this.db) {
-      this.db.finalizeTrack(prevCurrent.historyId, {
-        status: reason === 'skipped' ? 'skipped' : 'played',
-        likes: prevStats.likes,
-        dislikes: prevStats.dislikes,
-      });
-    }
-
-    this.votes.clear();
-    this.voteActions.clear();
-    this.pruneExpired();
-
     try {
+      const prevCurrent = this.current;
+      this.advancingTrackId = prevCurrent?.track?.id || null;
+      const prevStats = this.voteStats();
+      const skippedTrack = prevCurrent?.track;
+      if (reason === 'skipped') {
+        this.lastSkip = { seq: ++this.skipSeq, trackName: skippedTrack?.name || null };
+      }
+
+      if (prevCurrent?.historyId && this.db) {
+        try {
+          this.db.finalizeTrack(prevCurrent.historyId, {
+            status: reason === 'skipped' ? 'skipped' : 'played',
+            likes: prevStats.likes,
+            dislikes: prevStats.dislikes,
+          });
+        } catch (err) {
+          console.error('finalizeTrack error:', err.message);
+        }
+      }
+
+      this.votes.clear();
+      this.voteActions.clear();
+      this.pruneExpired();
+
       let next = this.queue.shift();
       let track = next?.track || null;
       let addedBy = next?.addedBy || null;
@@ -361,8 +368,9 @@ export class Room {
       let historyId = next?.historyId || null;
 
       if (!track) {
+        this.shuffleAbort = new AbortController();
         try {
-          const picked = await randomTrack(this.cooldownIds());
+          const picked = await randomTrack(this.cooldownIds(), this.shuffleAbort.signal);
           track = picked ? sanitizeTrack(picked) : null;
           addedBy = 'Shuffle';
           addedByEmoji = '🎲';
@@ -370,6 +378,8 @@ export class Room {
         } catch (err) {
           console.error('randomTrack error:', err.message);
           track = null;
+        } finally {
+          this.shuffleAbort = null;
         }
         if (this.queue.length > 0) {
           const queued = this.queue.shift();
@@ -388,15 +398,20 @@ export class Room {
       }
 
       if (historyId) {
-        this.db?.markTrackPlaying(historyId);
+        try { this.db?.markTrackPlaying(historyId); } catch (err) { console.error('markTrackPlaying error:', err.message); }
       } else if (this.db) {
-        historyId = this.db.recordTrackRequest({
-          userId: null,
-          addedBy,
-          addedByEmoji,
-          track,
-          status: 'playing',
-        });
+        try {
+          historyId = this.db.recordTrackRequest({
+            userId: null,
+            addedBy,
+            addedByEmoji,
+            track,
+            status: 'playing',
+          });
+        } catch (err) {
+          console.error('recordTrackRequest error:', err.message);
+          historyId = null;
+        }
       }
 
       const durationMs = Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, track.durationMs || 180_000));
@@ -419,6 +434,7 @@ export class Room {
       this.emitState(true);
       this.syncCurrentPlayback();
     } finally {
+      this.shuffleAbort = null;
       this.advancing = false;
       this.advancingTrackId = null;
     }
@@ -428,6 +444,7 @@ export class Room {
     const stats = this.voteStats();
     return {
       type: 'state',
+      roomInstanceId: this.roomInstanceId,
       provider: providerMode(),
       spotifyHost: getPublicHostStatus(),
       dislikesToSkip: DISLIKES_TO_SKIP,

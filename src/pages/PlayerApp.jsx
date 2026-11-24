@@ -32,6 +32,7 @@ export function PlayerApp() {
 
   let searchTimer = null;
   let searchRequest = null;
+  let lastRoomInstanceId = null;
   let lastSkipSeq = null;
   let voteInFlight = false;
   const cancelingQids = new Set();
@@ -97,9 +98,15 @@ export function PlayerApp() {
     const st = room.state();
     if (!st) return;
     const seq = st.lastSkip?.seq ?? 0;
+    const instId = st.roomInstanceId || null;
     if (lastSkipSeq === null) {
+      lastRoomInstanceId = instId;
       lastSkipSeq = seq;
       return;
+    }
+    if (instId && lastRoomInstanceId && instId !== lastRoomInstanceId) {
+      lastRoomInstanceId = instId;
+      lastSkipSeq = 0;
     }
     if (seq > lastSkipSeq) {
       lastSkipSeq = seq;

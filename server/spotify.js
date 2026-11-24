@@ -32,6 +32,11 @@ const host = {
   sessionToken: null,
 };
 let refreshInFlight = null;
+let hostGeneration = 0;
+let deviceGeneration = 0;
+let playbackSeq = 0;
+let playbackAbort = null;
+let spotifyRetryUntil = 0;
 
 const pendingOAuthStates = new Map();
 const OAUTH_STATE_TTL_MS = 10 * 60_000;
@@ -46,6 +51,7 @@ const SEARCH_CACHE_MS = 30_000;
 const trackCatalog = new Map();
 const trackFetchInFlight = new Map();
 const TRACK_CATALOG_MAX = 2000;
+const TRACK_CATALOG_TTL_MS = 5 * 60_000;
 const SPOTIFY_ID_RE = /^[A-Za-z0-9]{22}$/;
 const SPOTIFY_URI_RE = /^spotify:track:([A-Za-z0-9]{22})$/;
 
@@ -59,22 +65,59 @@ function basicAuthHeader() {
   return 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 }
 
-function spotifyFetch(url, options) {
-  return fetch(url, { ...options, signal: AbortSignal.timeout(8000) });
+function spotifyFetch(url, options = {}) {
+  const timeout = AbortSignal.timeout(8000);
+  const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
+  return fetch(url, { ...options, signal });
+}
+
+function recordSpotifyRetryAfter(res) {
+  if (res.status !== 429) return 0;
+  const retrySec = Number.parseFloat(res.headers.get('retry-after') || '2');
+  const waitMs = Math.min(60_000, Math.max(1000, Math.ceil((Number.isFinite(retrySec) ? retrySec : 2) * 1000)));
+  spotifyRetryUntil = Math.max(spotifyRetryUntil, Date.now() + waitMs);
+  return waitMs;
+}
+
+function sleepAbortable(ms, signal) {
+  if (!signal) return new Promise((r) => setTimeout(r, ms));
+  if (signal.aborted) return Promise.reject(signal.reason || new DOMException('Aborted', 'AbortError'));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(t);
+      reject(signal.reason || new DOMException('Aborted', 'AbortError'));
+    };
+    const t = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 async function spSearchFetch(url, opts = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {
+    if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     const now = Date.now();
+    if (spotifyRetryUntil > now) {
+      const remaining = spotifyRetryUntil - now;
+      if (remaining > 5000) {
+        throw new Error('Buscador temporalmente saturado, intenta en unos segundos.');
+      }
+      await sleepAbortable(remaining, opts.signal);
+      continue;
+    }
     while (spSearchCallTimes.length && now - spSearchCallTimes[0] > SP_WINDOW_MS) {
       spSearchCallTimes.shift();
     }
     if (spSearchCallTimes.length < SP_MAX_SEARCH_CALLS) {
       spSearchCallTimes.push(Date.now());
-      return spotifyFetch(url, opts);
+      const res = await spotifyFetch(url, opts);
+      recordSpotifyRetryAfter(res);
+      return res;
     }
     const wait = Math.min(SP_WINDOW_MS, SP_WINDOW_MS - (now - spSearchCallTimes[0]) + 60);
-    await new Promise((r) => setTimeout(r, wait));
+    await sleepAbortable(wait, opts.signal);
   }
   throw new Error('Buscador temporalmente saturado, intenta en unos segundos.');
 }
@@ -153,11 +196,11 @@ export async function getHostAccessToken() {
 export function getAuthUrl() {
   if (!spotifyEnabled) throw new Error('Configura SPOTIFY_CLIENT_ID y SPOTIFY_CLIENT_SECRET en .env');
   const now = Date.now();
-  for (const [k, ts] of pendingOAuthStates) {
-    if (now - ts > OAUTH_STATE_TTL_MS) pendingOAuthStates.delete(k);
+  for (const [k, entry] of pendingOAuthStates) {
+    if (now - entry.ts > OAUTH_STATE_TTL_MS) pendingOAuthStates.delete(k);
   }
   const oauthState = crypto.randomBytes(16).toString('hex');
-  pendingOAuthStates.set(oauthState, now);
+  pendingOAuthStates.set(oauthState, { ts: now, gen: hostGeneration });
   while (pendingOAuthStates.size > MAX_PENDING_OAUTH_STATES) {
     pendingOAuthStates.delete(pendingOAuthStates.keys().next().value);
   }
@@ -175,12 +218,16 @@ export function getAuthUrl() {
 }
 
 export async function exchangeCode(code, state) {
-  const createdAt = pendingOAuthStates.get(state);
-  if (!state || !createdAt || Date.now() - createdAt > OAUTH_STATE_TTL_MS) {
+  const entry = pendingOAuthStates.get(state);
+  if (!state || !entry || Date.now() - entry.ts > OAUTH_STATE_TTL_MS) {
     pendingOAuthStates.delete(state);
     throw new Error('oauth_state_invalid');
   }
   pendingOAuthStates.delete(state);
+  const expectedGen = entry.gen;
+  if (hostGeneration !== expectedGen) {
+    throw new Error('oauth_state_invalid');
+  }
 
   const res = await spotifyFetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
@@ -204,6 +251,9 @@ export async function exchangeCode(code, state) {
   });
   if (!meRes.ok) throw new Error(`oauth_profile_failed_${meRes.status}`);
   const me = await meRes.json();
+  if (hostGeneration !== expectedGen) {
+    throw new Error('oauth_state_invalid');
+  }
   const sessionToken = crypto.randomBytes(32).toString('hex');
   disconnectHost();
   Object.assign(host, {
@@ -227,26 +277,43 @@ export function verifyHostSession(token) {
 export function setHostDevice(deviceId) {
   if (deviceId === null) {
     host.deviceId = null;
+    deviceGeneration++;
     return true;
   }
   if (typeof deviceId !== 'string') return false;
   const trimmed = deviceId.trim();
   if (!trimmed || trimmed.length > 128) return false;
   host.deviceId = trimmed;
+  deviceGeneration++;
   return true;
 }
 
-export function clearHostDevice(expectedDeviceId = null) {
+export function getHostDeviceGeneration() {
+  return deviceGeneration;
+}
+
+export function clearHostDevice(expectedDeviceId = null, expectedGeneration = null) {
+  if (expectedGeneration !== null && expectedGeneration !== undefined) {
+    const genNum = Number(expectedGeneration);
+    if (!Number.isFinite(genNum) || genNum !== deviceGeneration) return false;
+  }
   if (expectedDeviceId && typeof expectedDeviceId === 'string') {
     const trimmed = expectedDeviceId.trim();
     if (trimmed && host.deviceId !== trimmed) return false;
   }
   host.deviceId = null;
+  deviceGeneration++;
   return true;
 }
 
 export function disconnectHost() {
+  hostGeneration++;
+  deviceGeneration++;
+  playbackSeq++;
+  playbackAbort?.abort();
+  playbackAbort = null;
   refreshInFlight = null;
+  pendingOAuthStates.clear();
   host.accessToken = null;
   host.refreshToken = null;
   host.expiresAt = 0;
@@ -297,31 +364,59 @@ export async function playTrackOnHost(track, positionMs = 0) {
     return { ok: false, reason: 'invalid-uri' };
   }
   if (!host.deviceId) return { ok: false, reason: 'device-not-ready' };
+  const seq = ++playbackSeq;
+  const gen = hostGeneration;
+  playbackAbort?.abort();
+  const controller = new AbortController();
+  playbackAbort = controller;
+
   const token = await getHostAccessToken();
+  if (seq !== playbackSeq || gen !== hostGeneration) {
+    return { ok: false, reason: 'superseded' };
+  }
   if (!token) return { ok: false, reason: 'host-not-connected' };
+  const activeDeviceId = host.deviceId;
+  if (!activeDeviceId) return { ok: false, reason: 'device-not-ready' };
 
   const url = new URL('https://api.spotify.com/v1/me/player/play');
-  url.searchParams.set('device_id', host.deviceId);
+  url.searchParams.set('device_id', activeDeviceId);
   const safePositionMs = Number.isFinite(positionMs) ? Math.max(0, Math.floor(positionMs)) : 0;
 
-  const res = await spotifyFetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      uris: [track.uri],
-      position_ms: safePositionMs,
-    }),
-  });
-  return res.status === 204 || res.ok ? { ok: true } : { ok: false, status: res.status };
+  try {
+    const res = await spotifyFetch(url, {
+      method: 'PUT',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uris: [track.uri],
+        position_ms: safePositionMs,
+      }),
+    });
+    if (seq !== playbackSeq || gen !== hostGeneration) {
+      return { ok: false, reason: 'superseded' };
+    }
+    return res.status === 204 || res.ok ? { ok: true } : { ok: false, status: res.status };
+  } catch (err) {
+    if (controller.signal.aborted || seq !== playbackSeq || gen !== hostGeneration) {
+      return { ok: false, reason: 'superseded' };
+    }
+    throw err;
+  } finally {
+    if (playbackAbort === controller) playbackAbort = null;
+  }
+}
+
+function isPlayableSpotifyTrack(t) {
+  return Boolean(t?.id && t.is_playable !== false);
 }
 
 function cacheTrack(track) {
   if (!track?.id) return track;
   if (trackCatalog.has(track.id)) trackCatalog.delete(track.id);
-  trackCatalog.set(track.id, track);
+  trackCatalog.set(track.id, { track, at: Date.now() });
   if (trackCatalog.size > TRACK_CATALOG_MAX) {
     trackCatalog.delete(trackCatalog.keys().next().value);
   }
@@ -361,7 +456,8 @@ export async function resolveTrack(rawTrack) {
   if (!trackId) return null;
 
   const cached = trackCatalog.get(trackId);
-  if (cached) return cached;
+  if (cached && Date.now() - cached.at < TRACK_CATALOG_TTL_MS) return cached.track;
+  if (cached) trackCatalog.delete(trackId);
 
   if (trackFetchInFlight.has(trackId)) return trackFetchInFlight.get(trackId);
 
@@ -373,7 +469,7 @@ export async function resolveTrack(rawTrack) {
     if (res.status === 404 || res.status === 400) return null;
     if (!res.ok) throw new Error(`Error al validar canción en Spotify (${res.status}).`);
     const data = await res.json();
-    if (!data?.id || data.type !== 'track') return null;
+    if (!data?.id || data.type !== 'track' || !isPlayableSpotifyTrack(data)) return null;
     return normalize(data);
   })();
 
@@ -399,7 +495,9 @@ export async function searchTracks(query) {
     url.search = new URLSearchParams({ q: key, type: 'track', limit: '10', market: MARKET });
     const res = await spSearchFetch(url, { headers: { Authorization: `Bearer ${access}` } });
     if (!res.ok) throw new Error(`Error al buscar en Spotify (${res.status}).`);
-    const tracks = ((await res.json()).tracks?.items || []).map(normalize);
+    const tracks = ((await res.json()).tracks?.items || [])
+      .filter(isPlayableSpotifyTrack)
+      .map(normalize);
     searchCache.set(key, { at: Date.now(), tracks });
     if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
     return tracks;
@@ -413,11 +511,23 @@ export async function searchTracks(query) {
   }
 }
 
-export async function randomTrack(excludeIds = new Set()) {
+export async function randomTrack(excludeIds = new Set(), signal = null) {
   if (!spotifyEnabled) return randomDemoTrack(excludeIds);
   for (let attempt = 0; attempt < 6; attempt++) {
+    if (signal?.aborted) return null;
+    const now = Date.now();
+    if (spotifyRetryUntil > now) {
+      const remaining = spotifyRetryUntil - now;
+      if (remaining > 5000) return null;
+      try {
+        await sleepAbortable(remaining, signal);
+      } catch {
+        return null;
+      }
+    }
     try {
       const access = await getSearchToken();
+      if (signal?.aborted) return null;
       const url = new URL('https://api.spotify.com/v1/search');
       url.search = new URLSearchParams({
         q: RANDOM_TERMS[Math.floor(Math.random() * RANDOM_TERMS.length)],
@@ -426,24 +536,33 @@ export async function randomTrack(excludeIds = new Set()) {
         offset: String(Math.floor(Math.random() * 120)),
         market: MARKET,
       });
-      const res = await spSearchFetch(url, { headers: { Authorization: `Bearer ${access}` } });
+      const res = await spSearchFetch(url, {
+        headers: { Authorization: `Bearer ${access}` },
+        signal,
+      });
       if (res.status === 429) {
-        const retrySec = Number.parseFloat(res.headers.get('retry-after') || '1');
-        const waitMs = Math.min(5000, Math.max(500, Math.ceil((Number.isFinite(retrySec) ? retrySec : 1) * 1000)));
-        if (attempt < 5) await new Promise((r) => setTimeout(r, waitMs));
+        const waitMs = spotifyRetryUntil - Date.now();
+        if (waitMs > 5000 || attempt >= 5) return null;
+        await sleepAbortable(Math.max(500, waitMs), signal);
         continue;
       }
       if (!res.ok) {
-        if (attempt < 5) await new Promise((r) => setTimeout(r, 150));
+        if (attempt < 5) await sleepAbortable(150, signal);
         continue;
       }
       const items = (await res.json()).tracks?.items || [];
       const fresh = items.filter(
-        (t) => !excludeIds.has(t.id) && (!t.duration_ms || t.duration_ms <= MAX_TRACK_DURATION_MS)
+        (t) =>
+          isPlayableSpotifyTrack(t) &&
+          !excludeIds.has(t.id) &&
+          (!t.duration_ms || t.duration_ms <= MAX_TRACK_DURATION_MS)
       );
       if (fresh.length) return normalize(fresh[Math.floor(Math.random() * fresh.length)]);
     } catch {
-      if (attempt < 5) await new Promise((r) => setTimeout(r, 150));
+      if (signal?.aborted) return null;
+      if (attempt < 5) {
+        try { await sleepAbortable(150, signal); } catch { return null; }
+      }
       continue;
     }
   }
