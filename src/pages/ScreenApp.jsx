@@ -19,7 +19,7 @@ export function ScreenApp() {
   const [banner, setBanner] = createSignal({ text: '', visible: false });
 
   let bannerTimer = null;
-  let lastSeenTrackId = null;
+  let lastSkipSeq = null;
   let reactionSeq = 0;
   let wavePulse = 0;
   const reactionTimers = new Set();
@@ -94,15 +94,17 @@ export function ScreenApp() {
   }
 
   createEffect(() => {
-    const cur = current();
-    if (!cur) {
-      lastSeenTrackId = null;
+    const st = room.state();
+    if (!st) return;
+    const seq = st.lastSkip?.seq ?? 0;
+    if (lastSkipSeq === null) {
+      lastSkipSeq = seq;
       return;
     }
-    if (lastSeenTrackId && lastSeenTrackId !== cur.track.id && cur.reason === 'skipped') {
-      showBanner(`⏭ «${cur.skippedTrack || 'Canción'}» fue saltada por votos`, 2800);
+    if (seq > lastSkipSeq) {
+      lastSkipSeq = seq;
+      showBanner(`⏭ «${st.lastSkip?.trackName || 'Canción'}» fue saltada por votos`, 2800);
     }
-    lastSeenTrackId = cur.track.id;
   });
 
   onMount(() => {

@@ -1,5 +1,6 @@
 import { createSignal, createMemo, onMount, onCleanup, Show, For } from 'solid-js';
 import { api, fmtMs, loadSession, saveSession, trackGradient } from '../lib/api.js';
+import { createRoom } from '../lib/room.js';
 import { toast } from '../lib/sonner.js';
 import { Cover } from '../components/Cover.jsx';
 import { ChevronDownIcon, CrownIcon, SearchIcon } from '../components/Icons.jsx';
@@ -36,11 +37,15 @@ export function HistoryApp() {
   const [userTracks, setUserTracks] = createSignal({}); // userId -> TrackHistory[]
   const [loadingUserId, setLoadingUserId] = createSignal(null);
 
+  const room = createRoom();
+
   async function loadAll() {
     setLoading(true);
     try {
       const res = await api('/api/history');
       setData(res);
+      const openId = openUserId();
+      if (openId) fetchUserHistory(openId);
     } catch (err) {
       toast.error('No se pudo cargar el historial', err.message);
     } finally {
@@ -142,7 +147,7 @@ export function HistoryApp() {
     ];
   });
 
-  const people = () => data()?.people || [];
+  const people = createMemo(() => (data()?.people || []).map((p, i) => ({ ...p, rank: i + 1 })));
   const fullHistory = () => data()?.history || [];
   const totals = () => data()?.totals || { totalTracks: 0, totalRequesters: 0 };
 
@@ -388,7 +393,7 @@ export function HistoryApp() {
                 }
               >
                 <For each={filteredPeople()}>
-                  {(person, idx) => {
+                  {(person) => {
                     const isOpen = () => openUserId() === person.id;
                     const tracks = () => userTracks()[person.id] || [];
                     const isBusy = () => loadingUserId() === person.id;
@@ -401,7 +406,7 @@ export function HistoryApp() {
                           aria-expanded={isOpen()}
                           onClick={() => toggleParticipant(person.id)}
                         >
-                          <span class="acc-rank tabular">#{idx() + 1}</span>
+                          <span class="acc-rank tabular">#{person.rank}</span>
                           <span
                             class="acc-avatar"
                             style={{ background: trackGradient({ id: person.id }) }}
@@ -468,8 +473,8 @@ export function HistoryApp() {
       </div>
 
       <CommandSearch
-        queue={() => []}
-        currentTrackId={() => null}
+        queue={() => room.state()?.queue || []}
+        currentTrackId={() => room.state()?.current?.track?.id || null}
         onEnqueue={enqueueFromHistory}
         onNotify={(msg) => toast.error('Error de búsqueda', msg)}
       />

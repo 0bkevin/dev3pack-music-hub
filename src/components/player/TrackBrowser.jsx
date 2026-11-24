@@ -73,7 +73,7 @@ export function TrackBrowser(props) {
 
       <div class="track-list" id="results">
         <Show
-          when={props.results().length > 0}
+          when={!props.searching() && props.results().length > 0}
           fallback={
             <div class="empty-copy">
               {props.searching() ? 'Buscando…' : 'No encontramos canciones para esa búsqueda.'}

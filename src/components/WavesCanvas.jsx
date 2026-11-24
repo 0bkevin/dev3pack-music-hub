@@ -19,6 +19,8 @@ export function WavesCanvas(props) {
       { amp: 18, freq: 0.0044, speed: 0.0019, phase: 4.8, yRatio: 0.79, alpha: 0.32, width: 1.1, hueShift: 26 },
     ];
 
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = window.innerWidth;
@@ -26,12 +28,8 @@ export function WavesCanvas(props) {
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (motionQuery.matches) draw(0);
     }
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     function draw(now) {
       ctx.clearRect(0, 0, w, h);
@@ -104,6 +102,8 @@ export function WavesCanvas(props) {
       rafId = requestAnimationFrame(draw);
     };
 
+    resize();
+    window.addEventListener('resize', resize);
     startOrRender();
     motionQuery.addEventListener('change', startOrRender);
 

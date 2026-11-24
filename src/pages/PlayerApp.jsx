@@ -32,7 +32,7 @@ export function PlayerApp() {
 
   let searchTimer = null;
   let searchRequest = null;
-  let lastSeenTrackId = null;
+  let lastSkipSeq = null;
   let voteInFlight = false;
   const cancelingQids = new Set();
   let nameRef;
@@ -94,18 +94,20 @@ export function PlayerApp() {
   const likes = () => room.state()?.likes || 0;
 
   createEffect(() => {
-    const cur = current();
-    if (!cur) {
-      lastSeenTrackId = null;
+    const st = room.state();
+    if (!st) return;
+    const seq = st.lastSkip?.seq ?? 0;
+    if (lastSkipSeq === null) {
+      lastSkipSeq = seq;
       return;
     }
-    if (lastSeenTrackId && lastSeenTrackId !== cur.track.id && cur.reason === 'skipped') {
+    if (seq > lastSkipSeq) {
+      lastSkipSeq = seq;
       toast.info(
         'Canción saltada por la sala',
-        `«${cur.skippedTrack || 'La pista anterior'}» alcanzó el límite de no me gusta.`
+        `«${st.lastSkip?.trackName || 'La pista anterior'}» alcanzó el límite de no me gusta.`
       );
     }
-    lastSeenTrackId = cur.track.id;
   });
 
   const isManualSearch = () => searchText().trim().length > 0;

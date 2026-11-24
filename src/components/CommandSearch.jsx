@@ -229,6 +229,7 @@ export function CommandSearch(props) {
                       type="button"
                       role="option"
                       aria-selected={isSelected()}
+                      aria-disabled={isDisabled() ? 'true' : undefined}
                       class={`cmd-row${isSelected() ? ' selected' : ''}${isDisabled() ? ' muted' : ''}`}
                       onMouseEnter={() => setActiveIdx(idx())}
                       onClick={() => propose(track)}
