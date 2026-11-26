@@ -170,6 +170,7 @@ export function ScreenApp() {
   return (
     <div class={`tv-screen${current() ? ' playing' : ''}`} id="tv-screen">
       <div class="tv-svg-bg" aria-hidden="true" />
+      <div class="tv-ambient" aria-hidden="true" />
       <div class="tv-vignette" />
       <WavesCanvas
         targetEnergy={waveEnergy}

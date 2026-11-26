@@ -22,6 +22,27 @@
   background-size: min(94vw, 150vh) auto;
 }
 
+.tv-ambient {
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 18% 66%, #ff6e9880, transparent 32%),
+    radial-gradient(ellipse at 76% 22%, #b986ff66, transparent 35%),
+    radial-gradient(ellipse at 68% 85%, #ffab7666, transparent 31%);
+  opacity: 0.45;
+  mix-blend-mode: screen;
+  animation: tv-ambient-drift 15s ease-in-out infinite alternate;
+  transition: opacity 900ms ease;
+}
+.tv-screen.playing .tv-ambient { opacity: 0.62; }
+
+@keyframes tv-ambient-drift {
+  from { transform: translate3d(-5%, 3%, 0) scale(0.96); }
+  to { transform: translate3d(7%, -5%, 0) scale(1.14); }
+}
+
 /* Soft ambient tint at bottom so waves & dock have depth without dimming the Dev3pack logo */
 .tv-vignette {
   position: absolute;
@@ -407,3 +428,7 @@
 }
 .tv-skip-banner.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-ambient { animation: none; transition: none; }
+}
