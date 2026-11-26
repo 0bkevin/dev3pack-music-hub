@@ -3,9 +3,10 @@ import { api, fmtMs, hashCode, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { createSpotifyHostPlayer } from '../lib/spotifyPlayer.js';
 import { Cover } from '../components/Cover.jsx';
-import { Equalizer } from '../components/Icons.jsx';
+import { Equalizer, ThumbVoteIcon } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
+import { GuestQr } from '../components/GuestQr.jsx';
 
 const SPOTIFY_ERROR_MESSAGES = {
   auth_denied: 'Autenticación con Spotify cancelada.',
@@ -170,6 +171,7 @@ export function ScreenApp() {
   return (
     <div class={`tv-screen${current() ? ' playing' : ''}`} id="tv-screen">
       <div class="tv-svg-bg" aria-hidden="true" />
+      <div class="tv-ambient" aria-hidden="true" />
       <div class="tv-vignette" />
       <WavesCanvas
         targetEnergy={waveEnergy}
@@ -177,19 +179,8 @@ export function ScreenApp() {
         bpm={waveBpm}
         consumePulse={consumePulse}
       />
-
-      <Show when={!current()}>
-        <div class="tv-idle" id="idle">
-          <div class="tv-idle-bar">
-            <i class="live-dot" />
-            <span>Esperando música</span>
-            <AudioButton />
-          </div>
-        </div>
-      </Show>
-
-      <Show when={current()}>
-        <div class="tv-layout" id="grid">
+      <div class="tv-sidebar">
+        <Show when={current()}>
           <aside class="tv-queue">
             <div class="tv-queue-head">
               <h2>Siguiente</h2>
@@ -218,7 +209,22 @@ export function ScreenApp() {
               </div>
             </Show>
           </aside>
+        </Show>
+        <GuestQr />
+      </div>
 
+      <Show when={!current()}>
+        <div class="tv-idle" id="idle">
+          <div class="tv-idle-bar">
+            <i class="live-dot" />
+            <span>Esperando música</span>
+            <AudioButton />
+          </div>
+        </div>
+      </Show>
+
+      <Show when={current()}>
+        <div class="tv-layout" id="grid">
           <footer class="tv-dock">
             <div class="tv-progress-wrap">
               <span class="tv-time">{fmtMs(room.elapsedMs())}</span>
@@ -247,10 +253,18 @@ export function ScreenApp() {
 
               <div class="tv-dock-right">
                 <div class="tv-votes">
-                  <span class="tv-vote-pill like">👍 {likes()}</span>
-                  <span class="tv-vote-pill dislike">👎 {dislikes()}</span>
+                  <div class="tv-vote-counts">
+                    <span class="tv-vote-count" role="img" aria-label={`${likes()} votos a favor`}>
+                      <ThumbVoteIcon />
+                      {likes()}
+                    </span>
+                    <span class="tv-vote-count" role="img" aria-label={`${dislikes()} votos en contra`}>
+                      <ThumbVoteIcon down />
+                      {dislikes()}
+                    </span>
+                  </div>
                   <span class="tv-skip-note">
-                    <span class="skip-dots">
+                    <span class="skip-dots" aria-hidden="true">
                       <For each={skipDotIndexes()}>
                         {(i) => <i class={i < dislikes() ? 'on' : ''} />}
                       </For>

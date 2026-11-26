@@ -69,6 +69,25 @@ export function Equalizer() {
   );
 }
 
+export function ThumbVoteIcon(props) {
+  return (
+    <svg
+      classList={{ 'thumb-vote-down': props.down }}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.7"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 10v10M15 6.5 14 10h5.4a2 2 0 0 1 1.9 2.6l-2 6a2 2 0 0 1-1.9 1.4H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3l4-6a2 2 0 0 1 3 2.5Z" />
+    </svg>
+  );
+}
+
 export function HistoryIcon() {
   return (
     <svg

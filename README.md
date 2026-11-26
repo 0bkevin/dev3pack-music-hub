@@ -19,6 +19,8 @@ npm start
 ```
 
 Open `http://127.0.0.1:3000/` (participants) and `http://127.0.0.1:3000/screen` (TV).
+
+The TV screen displays a QR code for the participant page. Open `/screen` on a hostname or LAN address that guests' phones can reach. If the TV uses a different address, set `VITE_GUEST_URL` to the full participant URL before building the app.
 Without Spotify credentials in `.env`, the server runs with a built-in demo catalog.
 
 ### Development & Tests
