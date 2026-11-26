@@ -6,6 +6,7 @@ import { Cover } from '../components/Cover.jsx';
 import { Equalizer, ThumbVoteIcon } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
+import { GuestQr } from '../components/GuestQr.jsx';
 
 const SPOTIFY_ERROR_MESSAGES = {
   auth_denied: 'Autenticación con Spotify cancelada.',
@@ -178,19 +179,8 @@ export function ScreenApp() {
         bpm={waveBpm}
         consumePulse={consumePulse}
       />
-
-      <Show when={!current()}>
-        <div class="tv-idle" id="idle">
-          <div class="tv-idle-bar">
-            <i class="live-dot" />
-            <span>Esperando música</span>
-            <AudioButton />
-          </div>
-        </div>
-      </Show>
-
-      <Show when={current()}>
-        <div class="tv-layout" id="grid">
+      <div class="tv-sidebar">
+        <Show when={current()}>
           <aside class="tv-queue">
             <div class="tv-queue-head">
               <h2>Siguiente</h2>
@@ -219,7 +209,22 @@ export function ScreenApp() {
               </div>
             </Show>
           </aside>
+        </Show>
+        <GuestQr />
+      </div>
 
+      <Show when={!current()}>
+        <div class="tv-idle" id="idle">
+          <div class="tv-idle-bar">
+            <i class="live-dot" />
+            <span>Esperando música</span>
+            <AudioButton />
+          </div>
+        </div>
+      </Show>
+
+      <Show when={current()}>
+        <div class="tv-layout" id="grid">
           <footer class="tv-dock">
             <div class="tv-progress-wrap">
               <span class="tv-time">{fmtMs(room.elapsedMs())}</span>

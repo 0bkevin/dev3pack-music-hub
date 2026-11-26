@@ -3,6 +3,9 @@
    ========================================================= */
 
 .tv-screen {
+  --tv-edge: clamp(18px, 3vw, 44px);
+  --tv-qr-size: clamp(112px, 15vh, 168px);
+  --tv-side-width: 228px;
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -41,6 +44,70 @@
 @keyframes tv-ambient-drift {
   from { transform: translate3d(-5%, 3%, 0) scale(0.96); }
   to { transform: translate3d(7%, -5%, 0) scale(1.14); }
+}
+
+.tv-sidebar {
+  position: absolute;
+  top: clamp(12px, 2vh, 28px);
+  right: var(--tv-edge);
+  bottom: 142px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: clamp(20px, 3vh, 36px);
+  width: var(--tv-side-width);
+  pointer-events: none;
+}
+.tv-join {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  flex-shrink: 0;
+  gap: 9px;
+  padding-top: 12px;
+  border-top: 1px solid #ffe6ee26;
+  border-radius: 5px;
+  color: #fff0f5;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.tv-join:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+.tv-join-qr {
+  display: block;
+  width: var(--tv-qr-size);
+  height: var(--tv-qr-size);
+  border-radius: 4px;
+  background: #e6b1c4;
+}
+.tv-join-copy {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+.tv-join-copy strong {
+  font-size: clamp(15px, 1.2vw, 20px);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.tv-join-copy span {
+  color: #ffcbdf;
+  font-size: clamp(12px, 1vw, 16px);
+  line-height: 1.45;
+}
+.tv-join-url {
+  min-width: 0;
+  max-width: 100%;
+  color: #ffcbdf;
+  font-size: clamp(12px, 1.05vw, 16px);
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 /* Soft ambient tint at bottom so waves & dock have depth without dimming the Dev3pack logo */
@@ -103,20 +170,18 @@
 
 /* Distant floating queue on far right — clear of the Dev3pack logo */
 .tv-queue {
-  position: absolute;
-  top: 50%;
-  right: 40px;
-  transform: translateY(-56%);
-  width: 228px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   opacity: 0.52;
   transition: opacity 220ms var(--ease-out);
-  z-index: 7;
+  pointer-events: auto;
+}
+@media (max-width: 1020px), (max-height: 600px) {
+  .tv-queue { display: none; }
 }
 @media (max-width: 1020px) {
-  .tv-queue { display: none; }
   .tv-svg-bg { background-position: center 43%; background-size: min(98vw, 145vh) auto; }
 }
 
@@ -143,13 +208,9 @@
 
 .tv-queue-list {
   overflow-y: auto;
-  max-height: 46vh;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  mask-image: linear-gradient(180deg, #000 0%, #000 74%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 74%, transparent 100%);
-  padding-bottom: 22px;
 }
 
 .tv-q-item {
@@ -348,6 +409,16 @@
 }
 
 @media (max-width: 720px) {
+  .tv-screen { --tv-qr-size: clamp(96px, 15vh, 132px); }
+  .tv-sidebar {
+    bottom: 164px;
+    left: var(--tv-edge);
+    width: auto;
+  }
+  .tv-join {
+    max-width: var(--tv-side-width);
+    align-self: center;
+  }
   .tv-layout { padding: 20px 20px 24px; }
   .tv-svg-bg { background-position: center 39%; background-size: 100vw auto; }
   .tv-dock-row {
@@ -367,6 +438,17 @@
     justify-content: center;
     font-size: 12px;
     padding: 10px 14px;
+  }
+}
+
+@media (max-width: 720px) and (max-height: 640px) {
+  .tv-sidebar { bottom: auto; }
+  .tv-join {
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-end;
+    padding-top: 0;
+    border-top: 0;
   }
 }
 
@@ -430,7 +512,6 @@
   transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
 }
 .tv-skip-banner.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-
 
 @media (prefers-reduced-motion: reduce) {
   .tv-ambient { animation: none; transition: none; }
