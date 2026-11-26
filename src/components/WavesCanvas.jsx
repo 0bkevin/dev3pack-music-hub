@@ -5,18 +5,18 @@ export function WavesCanvas(props) {
 
   onMount(() => {
     const canvas = canvasRef;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
     let w = 0;
     let h = 0;
     let rafId = 0;
     let energy = 0.25;
 
     const layers = [
-      { amp: 34, freq: 0.0022, speed: 0.0011, phase: 0.0, yRatio: 0.78, alpha: 0.28, width: 1.8, hueShift: 0 },
-      { amp: 26, freq: 0.0031, speed: -0.0014, phase: 1.7, yRatio: 0.80, alpha: 0.22, width: 1.4, hueShift: 14 },
-      { amp: 44, freq: 0.0016, speed: 0.0008, phase: 3.1, yRatio: 0.82, alpha: 0.16, width: 1.2, hueShift: -12 },
-      { amp: 18, freq: 0.0044, speed: 0.0019, phase: 4.8, yRatio: 0.79, alpha: 0.32, width: 1.1, hueShift: 26 },
+      { amp: 76, freq: 0.0027, speed: 0.0013, phase: 0.0, yRatio: 0.72, alpha: 0.35, width: 2.4, hueShift: 0 },
+      { amp: 59, freq: 0.0037, speed: -0.0016, phase: 1.7, yRatio: 0.77, alpha: 0.26, width: 1.6, hueShift: 14 },
+      { amp: 91, freq: 0.0019, speed: 0.0010, phase: 3.1, yRatio: 0.81, alpha: 0.22, width: 1.4, hueShift: -52 },
+      { amp: 39, freq: 0.0052, speed: 0.0021, phase: 4.8, yRatio: 0.84, alpha: 0.34, width: 1.4, hueShift: 26 },
     ];
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -51,7 +51,7 @@ export function WavesCanvas(props) {
           0.28 * Math.pow(0.5 + 0.5 * Math.sin(tSec * Math.PI * 2 * beatHz), 2.4) +
           0.17 * Math.sin(tSec * Math.PI * beatHz * 0.5 + 1.1);
 
-      const dynamic = energy * beat + pulse * 0.65;
+      const dynamic = (0.2 + energy * beat + pulse * 0.65) * Math.min(1.5, h / 720);
       const step = Math.max(8, Math.floor(w / 140));
       const tAnim = reduced ? 0 : now;
 
