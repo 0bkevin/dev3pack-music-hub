@@ -297,31 +297,34 @@
 .tv-votes {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
 }
-.tv-vote-pill {
+.tv-vote-counts {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
-  border-radius: var(--r-sm);
-  background: rgba(22, 6, 11, 0.45);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 230, 236, 0.12);
-  font-size: 13px;
+  gap: 16px;
+  padding-inline-end: 14px;
+  border-inline-end: 1px solid #ffe6ee30;
+}
+.tv-vote-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff0f5;
+  font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.tv-vote-pill.like { color: var(--like); }
-.tv-vote-pill.dislike { color: var(--danger); }
+.tv-vote-count svg { color: #f4b8cd; }
+.thumb-vote-down { transform: rotate(180deg); }
 .tv-skip-note {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   font-size: 11.5px;
-  color: rgba(255, 235, 240, 0.52);
-  margin-left: 4px;
+  color: #f2c7d6;
 }
+.tv-skip-note .skip-dots i.on { background: #e98eae; }
 
 .tv-audio-btn {
   display: inline-flex;

@@ -3,7 +3,7 @@ import { api, fmtMs, hashCode, loadSession, saveSession } from '../lib/api.js';
 import { createRoom } from '../lib/room.js';
 import { createSpotifyHostPlayer } from '../lib/spotifyPlayer.js';
 import { Cover } from '../components/Cover.jsx';
-import { Equalizer } from '../components/Icons.jsx';
+import { Equalizer, ThumbVoteIcon } from '../components/Icons.jsx';
 import { WavesCanvas } from '../components/WavesCanvas.jsx';
 import { CommandSearch } from '../components/CommandSearch.jsx';
 
@@ -248,10 +248,18 @@ export function ScreenApp() {
 
               <div class="tv-dock-right">
                 <div class="tv-votes">
-                  <span class="tv-vote-pill like">👍 {likes()}</span>
-                  <span class="tv-vote-pill dislike">👎 {dislikes()}</span>
+                  <div class="tv-vote-counts">
+                    <span class="tv-vote-count" role="img" aria-label={`${likes()} votos a favor`}>
+                      <ThumbVoteIcon />
+                      {likes()}
+                    </span>
+                    <span class="tv-vote-count" role="img" aria-label={`${dislikes()} votos en contra`}>
+                      <ThumbVoteIcon down />
+                      {dislikes()}
+                    </span>
+                  </div>
                   <span class="tv-skip-note">
-                    <span class="skip-dots">
+                    <span class="skip-dots" aria-hidden="true">
                       <For each={skipDotIndexes()}>
                         {(i) => <i class={i < dislikes() ? 'on' : ''} />}
                       </For>
